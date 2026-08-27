@@ -1,0 +1,65 @@
+Smart SEO Fixer — Setup Guide
+================================
+
+1. AWS BEDROCK CREDENTIALS (REQUIRED)
+--------------------------------------
+
+Smart SEO Fixer uses AWS Bedrock (Claude) for AI-powered SEO generation.
+You need an AWS account with Bedrock access enabled.
+
+Enter your credentials in:
+  WordPress Admin → Smart SEO → Settings → AI Provider
+
+OPTION A — Store in the database (quick setup)
+  Just paste your Access Key ID and Secret Access Key into the Settings page.
+
+OPTION B — Store in wp-config.php (recommended, more secure)
+  Add these lines to your wp-config.php BEFORE the line that says
+  "That's all, stop editing!":
+
+    define( 'SSF_BEDROCK_ACCESS_KEY', 'YOUR_ACCESS_KEY_ID' );
+    define( 'SSF_BEDROCK_SECRET_KEY', 'YOUR_SECRET_ACCESS_KEY' );
+    define( 'SSF_BEDROCK_REGION',     'us-east-1' );  // optional, defaults to us-east-1
+
+  Benefits:
+  - Credentials are never stored in the database
+  - They won't appear in database exports or backups
+  - The Settings fields will show a padlock icon and become read-only
+
+  AWS IAM permissions required:
+  - AmazonBedrockFullAccess (or a custom policy allowing bedrock:InvokeModel)
+
+
+2. GOOGLE SEARCH CONSOLE (OPTIONAL)
+-------------------------------------
+
+To use Search Performance, Indexability Auditor, and Keyword Tracker:
+
+  1. Go to https://console.cloud.google.com/apis/credentials
+  2. Create a project (or select an existing one)
+  3. Enable the "Google Search Console API"
+  4. Create OAuth 2.0 credentials (Web application type)
+  5. Add this as an Authorized Redirect URI:
+       https://your-site.com/wp-admin/admin.php?page=smart-seo-fixer-settings
+  6. Copy the Client ID and Client Secret into Settings → Google Search Console
+  7. Save settings, then click "Connect Google Search Console"
+
+
+3. GITHUB AUTO-UPDATES (OPTIONAL)
+-----------------------------------
+
+If you received this plugin from a private GitHub repository:
+
+  1. Generate a Personal Access Token at:
+       https://github.com/settings/tokens/new?scopes=repo
+  2. Paste it in Settings → GitHub Token
+  3. The plugin will check for updates automatically
+
+
+4. RECOMMENDED FIRST STEPS
+----------------------------
+
+  a) Go to Settings and configure your preferred post types and features
+  b) If migrating from Yoast/Rank Math/AIOSEO, use Smart SEO → Migration first
+  c) Run Smart SEO → Bulk AI Fix to generate SEO titles & descriptions
+  d) Check the Dashboard for your overall SEO health score

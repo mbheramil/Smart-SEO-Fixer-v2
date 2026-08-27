@@ -1,0 +1,5 @@
+Fetch Keywords Now Request failed.
+
+is it normal for the content tips to take too long?
+
+also regarding how the plugin dashboard looks was wondering if its possible that when i hover a flyout box just like a normal plugin would do when hovering. will this messes up everything?

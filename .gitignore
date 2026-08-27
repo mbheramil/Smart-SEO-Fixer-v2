@@ -1,0 +1,29 @@
+# WordPress
+*.log
+.htaccess
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node (if ever used for build)
+node_modules/
+package-lock.json
+
+# Composer
+vendor/
+composer.lock
+
+# Env / Secrets
+.env
+.env.*
+
+# Reference/comparison plugin kept locally for review — never ship to client sites
+smart-altimage-text/
