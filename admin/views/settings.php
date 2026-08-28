@@ -31,7 +31,15 @@ $using_consts = $const_access && $const_secret;
 $effective_access = $const_access ? SSF_BEDROCK_ACCESS_KEY : $bedrock_access;
 $effective_secret = $const_secret ? SSF_BEDROCK_SECRET_KEY : $bedrock_secret;
 $effective_region = $const_region ? SSF_BEDROCK_REGION     : $bedrock_region;
-$bedrock_configured = !empty($effective_access) && !empty($effective_secret);
+$bedrock_has_direct_keys = !empty($effective_access) && !empty($effective_secret);
+
+// SSF_Bedrock::is_configured() also accounts for the broker — a site with
+// no direct AWS key at all can still be fully configured because the
+// broker authorizes it automatically (its hosting IP is recognized) or via
+// a previously-issued broker token. Falls back to the raw key check if the
+// class somehow isn't available.
+$bedrock_configured     = class_exists('SSF_Bedrock') ? (new SSF_Bedrock())->is_configured() : $bedrock_has_direct_keys;
+$bedrock_via_broker_only = $bedrock_configured && !$bedrock_has_direct_keys;
 
 // Check if the ACTIVE provider is configured
 switch ($ai_provider) {
@@ -163,9 +171,21 @@ unset($available_post_types['attachment']);
                             </span>
                         </p>
                     <?php else: ?>
+                        <?php if ($bedrock_via_broker_only): ?>
+                        <p style="margin:0 0 4px;">
+                            <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;">
+                                <span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span>
+                                <?php esc_html_e('Configured', 'smart-seo-fixer'); ?>
+                            </span>
+                        </p>
+                        <p class="description" style="margin:0 0 12px;">
+                            <?php esc_html_e('This site is connected automatically — no AWS credentials are needed here. The fields below are optional; only fill them in if you want this site to use its own dedicated AWS account instead (also enables faster bulk processing).', 'smart-seo-fixer'); ?>
+                        </p>
+                        <?php else: ?>
                         <p class="description" style="margin:0 0 12px;">
                             <?php esc_html_e('Uses your own AWS account. Credentials are stored in WordPress options.', 'smart-seo-fixer'); ?>
                         </p>
+                        <?php endif; ?>
                         <table class="form-table">
                             <tr>
                                 <th scope="row"><label for="bedrock_access_key"><?php esc_html_e('Access Key ID', 'smart-seo-fixer'); ?></label></th>

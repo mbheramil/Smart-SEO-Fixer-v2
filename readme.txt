@@ -3,7 +3,7 @@ Contributors: mbheramil
 Tags: seo, ai, openai, meta description, schema, sitemap, search engine optimization, breadcrumbs, redirects, local seo
 Requires at least: 5.8
 Tested up to: 6.7
-Stable tag: 2.0.85
+Stable tag: 2.0.86
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -93,6 +93,9 @@ Yes. The plugin forces title-tag support for themes that don't declare it, and i
 6. Settings page with API configuration
 
 == Changelog ==
+= 2.0.86 =
+* IMPORTANT FIX: The Settings page's AI Provider status badge showed "Not configured" for a Bedrock site with no AWS keys of its own, even when that site is actually working correctly via the automatic broker connection added in 2.0.85 — the badge only ever checked for a raw access/secret key pair and had no idea the broker exists. It now reflects the real, broker-aware configuration state, and shows a clear note when a site is running on the automatic connection with no AWS keys of its own. "Test Connection" also no longer requires typing in an Access Key/Secret Key just to test the connection a site is actually using — leave both blank to test the real, current connection (broker or otherwise).
+
 = 2.0.85 =
 * Bedrock now automatically tries a central broker first on every AI request, with zero configuration. On infrastructure the broker recognizes, AI works the moment the plugin is active — no wp-config.php changes at all. On any other site, this is invisible: it falls straight through to that site's own configured AWS credentials, or the normal "not configured" message, exactly as before this existed. SSF_BEDROCK_BROKER_TOKEN remains available for individually granting a specific site access outside that recognized infrastructure.
 * Bulk/parallel AI runs now use the fast concurrent path whenever a site has its own AWS credentials configured, regardless of the broker; only a site with no credentials of its own falls back to the slower sequential path.

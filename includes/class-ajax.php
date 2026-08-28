@@ -630,8 +630,20 @@ class SSF_Ajax {
         $using_const = defined('SSF_BEDROCK_ACCESS_KEY') && SSF_BEDROCK_ACCESS_KEY !== ''
                     && defined('SSF_BEDROCK_SECRET_KEY') && SSF_BEDROCK_SECRET_KEY !== '';
 
-        if ($using_const) {
-            // Constants defined in wp-config.php — test directly, no DB manipulation needed
+        $access_key = sanitize_text_field(wp_unslash($_POST['access_key'] ?? ''));
+        $secret_key = sanitize_text_field(wp_unslash($_POST['secret_key'] ?? ''));
+
+        // Only treat this as "testing newly typed-in keys" if the user
+        // actually entered something. Blank fields here don't mean "no
+        // credentials" — SSF_Bedrock::request() always tries the broker
+        // first regardless, so testing with nothing typed in still
+        // exercises the real connection this site would actually use
+        // (broker, previously-saved options, or nothing).
+        $testing_new_keys = !$using_const && (!empty($access_key) || !empty($secret_key));
+
+        if (!$testing_new_keys) {
+            // wp-config constants, OR nothing typed in — test the
+            // connection exactly as this site's real AI calls would use it.
             $bedrock = new SSF_Bedrock();
             $result  = $bedrock->request(
                 [['role' => 'user', 'content' => 'Reply with exactly the word: CONNECTED']],
@@ -639,13 +651,10 @@ class SSF_Ajax {
                 0.0
             );
         } else {
-            // Credentials submitted from the settings form
-            $access_key = sanitize_text_field(wp_unslash($_POST['access_key'] ?? ''));
-            $secret_key = sanitize_text_field(wp_unslash($_POST['secret_key'] ?? ''));
-            $region     = sanitize_text_field(wp_unslash($_POST['region']     ?? 'us-east-1'));
+            $region = sanitize_text_field(wp_unslash($_POST['region'] ?? 'us-east-1'));
 
             if (empty($access_key) || empty($secret_key)) {
-                wp_send_json_error(['message' => __('Access Key and Secret Key are required.', 'smart-seo-fixer')]);
+                wp_send_json_error(['message' => __('Enter both an Access Key and Secret Key to test new credentials, or leave both blank to test the current connection.', 'smart-seo-fixer')]);
             }
 
             // Temporarily override options so SSF_Bedrock uses these values
