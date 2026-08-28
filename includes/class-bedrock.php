@@ -48,18 +48,31 @@ class SSF_Bedrock {
      * individual WordPress install means one migrated/cloned/backed-up site
      * leaks a credential that can bill against your AWS account indefinitely.
      *
-     * When these two constants are set, this class stops signing requests
-     * with a static AWS key entirely. Instead it sends the already-built
-     * Bedrock request body to a small proxy (Lambda + API Gateway) that
-     * holds the real credential ONLY there, via its Lambda execution role —
-     * never a static key. Each site gets a cheap, disposable bearer token
-     * instead, worth nothing to anyone who copies it, revocable per-site
-     * without touching AWS at all.
+     * Setting SSF_BEDROCK_BROKER_TOKEN alone is enough to switch this class
+     * from signing requests with a static AWS key to sending the already-built
+     * Bedrock request body to a small proxy (Lambda + API Gateway) that holds
+     * the real credential ONLY there, via its Lambda execution role — never a
+     * static key. Each site gets a cheap, disposable bearer token instead,
+     * worth nothing to anyone who copies it, revocable per-site without
+     * touching AWS at all.
      *
-     * Both undefined (the default) = unchanged direct-to-AWS behavior.
+     * The broker's URL is not itself sensitive — without a valid per-site
+     * token it returns nothing but a 401, so it's safe to ship as a built-in
+     * default rather than something every site has to configure. The
+     * constant remains available to point at a different broker deployment
+     * (e.g. a custom domain, or a separate broker for a different client
+     * segment) without touching this file again.
+     *
+     * SSF_BEDROCK_BROKER_TOKEN undefined (the default) = unchanged
+     * direct-to-AWS behavior.
      */
+    const DEFAULT_BROKER_URL = 'https://5f6qkvvqoh.execute-api.us-east-1.amazonaws.com';
+
     private function get_broker_url() {
-        return (defined('SSF_BEDROCK_BROKER_URL') && SSF_BEDROCK_BROKER_URL !== '') ? SSF_BEDROCK_BROKER_URL : '';
+        if (defined('SSF_BEDROCK_BROKER_URL') && SSF_BEDROCK_BROKER_URL !== '') {
+            return SSF_BEDROCK_BROKER_URL;
+        }
+        return self::DEFAULT_BROKER_URL;
     }
 
     private function get_broker_token() {
@@ -67,7 +80,7 @@ class SSF_Bedrock {
     }
 
     private function using_broker() {
-        return $this->get_broker_url() !== '' && $this->get_broker_token() !== '';
+        return $this->get_broker_token() !== '';
     }
 
     /**

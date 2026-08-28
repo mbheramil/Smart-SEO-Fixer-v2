@@ -3,7 +3,7 @@ Contributors: mbheramil
 Tags: seo, ai, openai, meta description, schema, sitemap, search engine optimization, breadcrumbs, redirects, local seo
 Requires at least: 5.8
 Tested up to: 6.7
-Stable tag: 2.0.83
+Stable tag: 2.0.84
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -93,6 +93,9 @@ Yes. The plugin forces title-tag support for themes that don't declare it, and i
 6. Settings page with API configuration
 
 == Changelog ==
+= 2.0.84 =
+* Bedrock broker mode is now simpler to turn on: only SSF_BEDROCK_BROKER_TOKEN needs to be set in wp-config.php. The broker's URL ships as a built-in default — it's not sensitive on its own (a request without a valid per-site token gets nothing but a 401), only the token needs to stay out of the codebase. SSF_BEDROCK_BROKER_URL remains available to override the default if you ever point a site at a different broker deployment.
+
 = 2.0.83 =
 * NEW: AWS Bedrock broker mode. Set SSF_BEDROCK_BROKER_URL and SSF_BEDROCK_BROKER_TOKEN in wp-config.php to route Bedrock requests through a small proxy that holds the real AWS credential centrally (never on any WordPress site). Each site instead gets a cheap, disposable per-site token — worthless if copied via a migration/backup/clone, and instantly revocable without touching AWS. Fully backward compatible: without these constants defined, behavior is unchanged. Bulk/parallel AI runs fall back to sequential requests when broker mode is active (correct, just not the fast concurrent path).
 
