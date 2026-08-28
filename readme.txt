@@ -3,7 +3,7 @@ Contributors: mbheramil
 Tags: seo, ai, openai, meta description, schema, sitemap, search engine optimization, breadcrumbs, redirects, local seo
 Requires at least: 5.8
 Tested up to: 6.7
-Stable tag: 2.0.82
+Stable tag: 2.0.83
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -93,6 +93,9 @@ Yes. The plugin forces title-tag support for themes that don't declare it, and i
 6. Settings page with API configuration
 
 == Changelog ==
+= 2.0.83 =
+* NEW: AWS Bedrock broker mode. Set SSF_BEDROCK_BROKER_URL and SSF_BEDROCK_BROKER_TOKEN in wp-config.php to route Bedrock requests through a small proxy that holds the real AWS credential centrally (never on any WordPress site). Each site instead gets a cheap, disposable per-site token — worthless if copied via a migration/backup/clone, and instantly revocable without touching AWS. Fully backward compatible: without these constants defined, behavior is unchanged. Bulk/parallel AI runs fall back to sequential requests when broker mode is active (correct, just not the fast concurrent path).
+
 = 2.0.82 =
 * Internal: This release retargets the auto-updater to a new repository (mbheramil/Smart-SEO-Fixer-v2). No functional changes. Future updates will be checked and downloaded from the new repository going forward.
 

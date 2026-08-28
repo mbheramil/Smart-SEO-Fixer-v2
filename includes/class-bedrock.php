@@ -44,6 +44,33 @@ class SSF_Bedrock {
     }
 
     /**
+     * Broker mode — for a fleet of sites, a real AWS key/secret pair on every
+     * individual WordPress install means one migrated/cloned/backed-up site
+     * leaks a credential that can bill against your AWS account indefinitely.
+     *
+     * When these two constants are set, this class stops signing requests
+     * with a static AWS key entirely. Instead it sends the already-built
+     * Bedrock request body to a small proxy (Lambda + API Gateway) that
+     * holds the real credential ONLY there, via its Lambda execution role —
+     * never a static key. Each site gets a cheap, disposable bearer token
+     * instead, worth nothing to anyone who copies it, revocable per-site
+     * without touching AWS at all.
+     *
+     * Both undefined (the default) = unchanged direct-to-AWS behavior.
+     */
+    private function get_broker_url() {
+        return (defined('SSF_BEDROCK_BROKER_URL') && SSF_BEDROCK_BROKER_URL !== '') ? SSF_BEDROCK_BROKER_URL : '';
+    }
+
+    private function get_broker_token() {
+        return (defined('SSF_BEDROCK_BROKER_TOKEN') && SSF_BEDROCK_BROKER_TOKEN !== '') ? SSF_BEDROCK_BROKER_TOKEN : '';
+    }
+
+    private function using_broker() {
+        return $this->get_broker_url() !== '' && $this->get_broker_token() !== '';
+    }
+
+    /**
      * Default Bedrock model — Claude Haiku 4.5 cross-region inference profile.
      * Claude 4.x-tier models on Bedrock are only invokable on-demand through a
      * cross-region inference profile, so the ID carries the `us.` prefix.
@@ -116,6 +143,9 @@ class SSF_Bedrock {
      * Check if Bedrock is fully configured
      */
     public function is_configured() {
+        if ($this->using_broker()) {
+            return true;
+        }
         return !empty($this->get_access_key()) && !empty($this->get_secret_key());
     }
 
@@ -315,11 +345,15 @@ class SSF_Bedrock {
      * Make an AWS Bedrock API request for the currently-selected model.
      */
     private function request_with_model( $messages, $max_tokens = 500, $temperature = 0.7 ) {
-        $access_key = $this->get_access_key();
-        $secret_key = $this->get_secret_key();
+        $using_broker = $this->using_broker();
 
-        if ( empty( $access_key ) || empty( $secret_key ) ) {
-            return new WP_Error( 'no_credentials', __( 'AWS Bedrock credentials not configured.', 'smart-seo-fixer' ) );
+        if ( ! $using_broker ) {
+            $access_key = $this->get_access_key();
+            $secret_key = $this->get_secret_key();
+
+            if ( empty( $access_key ) || empty( $secret_key ) ) {
+                return new WP_Error( 'no_credentials', __( 'AWS Bedrock credentials not configured.', 'smart-seo-fixer' ) );
+            }
         }
 
         $endpoint = $this->get_endpoint();
@@ -338,14 +372,31 @@ class SSF_Bedrock {
         $body_array = $this->build_body( $chat, $system, $max_tokens, $temperature );
         $body       = wp_json_encode( $body_array );
 
-        $make_request = function() use ( $access_key, $secret_key, $endpoint, $body ) {
-            $signed_headers = $this->sigv4_sign( $access_key, $secret_key, $endpoint, $body );
+        $make_request = function() use ( $using_broker, $endpoint, $body ) {
+            if ( $using_broker ) {
+                // The broker holds the real AWS credential via its own Lambda
+                // execution role — never a static key. It mirrors AWS's own
+                // response (status code + body) verbatim, so everything below
+                // this point is identical whether talking to AWS directly or
+                // through the broker.
+                $response = wp_remote_post( $this->get_broker_url(), [
+                    'timeout' => 60,
+                    'headers' => [
+                        'Authorization'   => 'Bearer ' . $this->get_broker_token(),
+                        'Content-Type'    => 'application/json',
+                        'X-Bedrock-Model' => $this->get_model(),
+                    ],
+                    'body' => $body,
+                ] );
+            } else {
+                $signed_headers = $this->sigv4_sign( $this->get_access_key(), $this->get_secret_key(), $endpoint, $body );
 
-            $response = wp_remote_post( $endpoint, [
-                'timeout' => 60,
-                'headers' => $signed_headers,
-                'body'    => $body,
-            ] );
+                $response = wp_remote_post( $endpoint, [
+                    'timeout' => 60,
+                    'headers' => $signed_headers,
+                    'body'    => $body,
+                ] );
+            }
 
             if ( is_wp_error( $response ) ) {
                 if ( class_exists( 'SSF_Logger' ) ) {
@@ -469,6 +520,21 @@ class SSF_Bedrock {
      * Parallel batch request for the currently-selected model.
      */
     private function request_multi_with_model( $jobs ) {
+        // Broker mode signs nothing itself (that's the broker's job, via its
+        // own Lambda role) — the SigV4 concurrency path below only knows how
+        // to sign direct-to-AWS requests. Rather than duplicate that signing
+        // logic for a bearer-token broker call, fall back to sequential
+        // requests, each of which already knows how to use the broker via
+        // request_with_model(). Slower, but correct; parallel-broker support
+        // can be added later if bulk-through-broker throughput matters.
+        if ( $this->using_broker() ) {
+            $out = [];
+            foreach ( $jobs as $k => $job ) {
+                $out[ $k ] = $this->request( $job['messages'], $job['max_tokens'] ?? 500, $job['temperature'] ?? 0.7 );
+            }
+            return $out;
+        }
+
         $access_key = $this->get_access_key();
         $secret_key = $this->get_secret_key();
 
