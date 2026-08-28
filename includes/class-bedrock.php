@@ -44,27 +44,30 @@ class SSF_Bedrock {
     }
 
     /**
-     * Broker mode — for a fleet of sites, a real AWS key/secret pair on every
-     * individual WordPress install means one migrated/cloned/backed-up site
-     * leaks a credential that can bill against your AWS account indefinitely.
+     * Broker — a small proxy (Lambda + API Gateway) that holds the real AWS
+     * credential only via its own IAM execution role, never a static key, so
+     * no individual WordPress site needs a real AWS credential at all. Every
+     * request is tried through the broker FIRST, automatically, with no
+     * configuration required:
      *
-     * Setting SSF_BEDROCK_BROKER_TOKEN alone is enough to switch this class
-     * from signing requests with a static AWS key to sending the already-built
-     * Bedrock request body to a small proxy (Lambda + API Gateway) that holds
-     * the real credential ONLY there, via its Lambda execution role — never a
-     * static key. Each site gets a cheap, disposable bearer token instead,
-     * worth nothing to anyone who copies it, revocable per-site without
-     * touching AWS at all.
+     *   - Sites hosted on the broker's own allow-listed infrastructure are
+     *     authorized purely by their server's IP — zero setup, works the
+     *     moment the plugin is active.
+     *   - Anything else gets a plain rejection from the broker and falls
+     *     straight through to that site's own configured AWS credentials
+     *     below, exactly as if the broker didn't exist. A site outside the
+     *     allow-list isn't broken by this — it just needs its own key,
+     *     same as before broker support existed.
      *
-     * The broker's URL is not itself sensitive — without a valid per-site
-     * token it returns nothing but a 401, so it's safe to ship as a built-in
-     * default rather than something every site has to configure. The
-     * constant remains available to point at a different broker deployment
-     * (e.g. a custom domain, or a separate broker for a different client
-     * segment) without touching this file again.
+     * SSF_BEDROCK_BROKER_TOKEN is optional — for a future individually-issued
+     * client outside the allow-listed infrastructure, where per-site
+     * revocation via that token (not IP) is what authorizes the request.
+     * Most sites will never set this.
      *
-     * SSF_BEDROCK_BROKER_TOKEN undefined (the default) = unchanged
-     * direct-to-AWS behavior.
+     * The broker's URL is not itself sensitive — an unauthorized caller gets
+     * nothing but a 403, so it ships as a built-in default. The constant
+     * remains available to point at a different broker deployment without
+     * touching this file again.
      */
     const DEFAULT_BROKER_URL = 'https://5f6qkvvqoh.execute-api.us-east-1.amazonaws.com';
 
@@ -77,10 +80,6 @@ class SSF_Bedrock {
 
     private function get_broker_token() {
         return (defined('SSF_BEDROCK_BROKER_TOKEN') && SSF_BEDROCK_BROKER_TOKEN !== '') ? SSF_BEDROCK_BROKER_TOKEN : '';
-    }
-
-    private function using_broker() {
-        return $this->get_broker_token() !== '';
     }
 
     /**
@@ -153,13 +152,34 @@ class SSF_Bedrock {
     }
 
     /**
-     * Check if Bedrock is fully configured
+     * Cache key for the broker's last real authorization verdict for this
+     * site. Whether this site is broker-authorized depends on its server's
+     * IP, which is_configured() cannot know synchronously without a network
+     * call — so the verdict from the last actual request (try_broker()) is
+     * cached here and reused, rather than making is_configured() itself
+     * perform a network round-trip.
+     */
+    const BROKER_STATUS_TRANSIENT = 'ssf_broker_status';
+
+    /**
+     * Check if Bedrock is fully configured.
+     *
+     * True if this site has its own AWS credentials, OR the broker has
+     * previously authorized this site (cached from the last real attempt).
+     * Before any request has ever been attempted, defaults to true — same
+     * philosophy as the rest of this plugin's AI diagnostics: attempt first,
+     * then report the specific real reason if it fails, rather than
+     * predicting failure in advance and refusing to try.
      */
     public function is_configured() {
-        if ($this->using_broker()) {
+        if (!empty($this->get_access_key()) && !empty($this->get_secret_key())) {
             return true;
         }
-        return !empty($this->get_access_key()) && !empty($this->get_secret_key());
+        $cached = get_transient(self::BROKER_STATUS_TRANSIENT);
+        if ($cached !== false) {
+            return $cached === 'authorized';
+        }
+        return true;
     }
 
     /**
@@ -355,20 +375,78 @@ class SSF_Bedrock {
     }
 
     /**
+     * One-shot attempt through the broker (no retries — an authorization
+     * decision doesn't get better on a second try). Returns:
+     *   - a string (the model's reply) or a WP_Error on a genuine Bedrock
+     *     error, once the broker has actually authorized and forwarded the
+     *     request — a real answer, not a signal to fall back.
+     *   - null when the broker declined to authorize this request at all
+     *     (wrong IP, no/invalid/revoked token) or couldn't be reached —
+     *     the caller's cue to fall through to this site's own AWS
+     *     credentials, exactly as if no broker existed.
+     *
+     * @param string $body Already-built, model-family-shaped request body.
+     * @return string|WP_Error|null
+     */
+    private function try_broker( $body ) {
+        $headers = [
+            'Content-Type'    => 'application/json',
+            'X-Bedrock-Model' => $this->get_model(),
+        ];
+        $token = $this->get_broker_token();
+        if ( $token !== '' ) {
+            $headers['Authorization'] = 'Bearer ' . $token;
+        }
+
+        $response = wp_remote_post( $this->get_broker_url(), [
+            'timeout' => 60,
+            'headers' => $headers,
+            'body'    => $body,
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            // Couldn't reach the broker at all — fall back silently, this
+            // site's own credentials (if any) are the real answer here.
+            return null;
+        }
+
+        $http_code = wp_remote_retrieve_response_code( $response );
+
+        if ( $http_code === 403 ) {
+            set_transient( self::BROKER_STATUS_TRANSIENT, 'unauthorized', 12 * HOUR_IN_SECONDS );
+            return null;
+        }
+
+        $body_string = wp_remote_retrieve_body( $response );
+        $data        = json_decode( $body_string, true );
+
+        if ( $http_code >= 400 ) {
+            // Authorized, but the request itself failed (bad model ID,
+            // malformed body, Bedrock-side error) — a real answer, not a
+            // "try direct AWS instead" signal.
+            set_transient( self::BROKER_STATUS_TRANSIENT, 'authorized', 12 * HOUR_IN_SECONDS );
+            $message = $data['message'] ?? ( $data['error']['message'] ?? "HTTP {$http_code}" );
+            if ( class_exists( 'SSF_Logger' ) ) {
+                SSF_Logger::error( "Bedrock broker error {$http_code}: {$message}", 'ai' );
+            }
+            return new WP_Error( 'api_error', $message );
+        }
+
+        set_transient( self::BROKER_STATUS_TRANSIENT, 'authorized', 12 * HOUR_IN_SECONDS );
+
+        $content = $this->extract_content( $data );
+
+        if ( ! is_wp_error( $content ) && class_exists( 'SSF_Logger' ) ) {
+            SSF_Logger::debug( 'Bedrock request successful (via broker)', 'ai', [ 'model' => $this->get_model() ] );
+        }
+
+        return $content;
+    }
+
+    /**
      * Make an AWS Bedrock API request for the currently-selected model.
      */
     private function request_with_model( $messages, $max_tokens = 500, $temperature = 0.7 ) {
-        $using_broker = $this->using_broker();
-
-        if ( ! $using_broker ) {
-            $access_key = $this->get_access_key();
-            $secret_key = $this->get_secret_key();
-
-            if ( empty( $access_key ) || empty( $secret_key ) ) {
-                return new WP_Error( 'no_credentials', __( 'AWS Bedrock credentials not configured.', 'smart-seo-fixer' ) );
-            }
-        }
-
         $endpoint = $this->get_endpoint();
 
         // Separate out a system role message if present (Claude style)
@@ -385,31 +463,33 @@ class SSF_Bedrock {
         $body_array = $this->build_body( $chat, $system, $max_tokens, $temperature );
         $body       = wp_json_encode( $body_array );
 
-        $make_request = function() use ( $using_broker, $endpoint, $body ) {
-            if ( $using_broker ) {
-                // The broker holds the real AWS credential via its own Lambda
-                // execution role — never a static key. It mirrors AWS's own
-                // response (status code + body) verbatim, so everything below
-                // this point is identical whether talking to AWS directly or
-                // through the broker.
-                $response = wp_remote_post( $this->get_broker_url(), [
-                    'timeout' => 60,
-                    'headers' => [
-                        'Authorization'   => 'Bearer ' . $this->get_broker_token(),
-                        'Content-Type'    => 'application/json',
-                        'X-Bedrock-Model' => $this->get_model(),
-                    ],
-                    'body' => $body,
-                ] );
-            } else {
-                $signed_headers = $this->sigv4_sign( $this->get_access_key(), $this->get_secret_key(), $endpoint, $body );
+        // The broker is always tried first, unconditionally — no
+        // configuration required. Returns null specifically when the broker
+        // declined to authorize this request (wrong IP, no/invalid/revoked
+        // token) or couldn't be reached at all, which is this site's cue to
+        // fall through to its own AWS credentials below exactly as if the
+        // broker didn't exist. A real answer (success, or a genuine Bedrock
+        // error once authorized) is returned immediately, broker or not.
+        $broker_result = $this->try_broker( $body );
+        if ( $broker_result !== null ) {
+            return $broker_result;
+        }
 
-                $response = wp_remote_post( $endpoint, [
-                    'timeout' => 60,
-                    'headers' => $signed_headers,
-                    'body'    => $body,
-                ] );
-            }
+        $access_key = $this->get_access_key();
+        $secret_key = $this->get_secret_key();
+
+        if ( empty( $access_key ) || empty( $secret_key ) ) {
+            return new WP_Error( 'no_credentials', __( 'AWS Bedrock credentials not configured.', 'smart-seo-fixer' ) );
+        }
+
+        $make_request = function() use ( $access_key, $secret_key, $endpoint, $body ) {
+            $signed_headers = $this->sigv4_sign( $access_key, $secret_key, $endpoint, $body );
+
+            $response = wp_remote_post( $endpoint, [
+                'timeout' => 60,
+                'headers' => $signed_headers,
+                'body'    => $body,
+            ] );
 
             if ( is_wp_error( $response ) ) {
                 if ( class_exists( 'SSF_Logger' ) ) {
@@ -533,27 +613,24 @@ class SSF_Bedrock {
      * Parallel batch request for the currently-selected model.
      */
     private function request_multi_with_model( $jobs ) {
-        // Broker mode signs nothing itself (that's the broker's job, via its
-        // own Lambda role) — the SigV4 concurrency path below only knows how
-        // to sign direct-to-AWS requests. Rather than duplicate that signing
-        // logic for a bearer-token broker call, fall back to sequential
-        // requests, each of which already knows how to use the broker via
-        // request_with_model(). Slower, but correct; parallel-broker support
-        // can be added later if bulk-through-broker throughput matters.
-        if ( $this->using_broker() ) {
+        $access_key = $this->get_access_key();
+        $secret_key = $this->get_secret_key();
+
+        // The SigV4 concurrency path below only knows how to sign
+        // direct-to-AWS requests — the broker (bearer-token auth, or none at
+        // all for an allow-listed IP) doesn't fit that shape, and isn't worth
+        // duplicating a parallel-dispatch implementation for. A site with no
+        // AWS credentials of its own is relying on the broker, so it falls
+        // back to sequential requests, each of which already tries the
+        // broker first via request_with_model(). Slower, but correct; a site
+        // with real AWS credentials keeps the fast concurrent path
+        // unchanged, exactly as before broker support existed.
+        if ( empty( $access_key ) || empty( $secret_key ) ) {
             $out = [];
             foreach ( $jobs as $k => $job ) {
                 $out[ $k ] = $this->request( $job['messages'], $job['max_tokens'] ?? 500, $job['temperature'] ?? 0.7 );
             }
             return $out;
-        }
-
-        $access_key = $this->get_access_key();
-        $secret_key = $this->get_secret_key();
-
-        if ( empty( $access_key ) || empty( $secret_key ) ) {
-            $err = new WP_Error( 'no_credentials', __( 'AWS Bedrock credentials not configured.', 'smart-seo-fixer' ) );
-            return array_map( function() use ( $err ) { return $err; }, $jobs );
         }
 
         if ( ! function_exists( 'curl_multi_init' ) ) {
