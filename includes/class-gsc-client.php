@@ -44,20 +44,291 @@ class SSF_GSC_Client {
     }
     
     /**
-     * Check if OAuth credentials are configured
+     * Check if OAuth credentials are configured.
+     *
+     * True when the central broker will serve this site, since in that case
+     * the site needs no OAuth client of its own at all.
      */
     public function has_credentials() {
-        return !empty($this->client_id) && !empty($this->client_secret);
+        if (!empty($this->client_id) && !empty($this->client_secret)) {
+            return true;
+        }
+        return $this->is_using_broker();
     }
-    
+
     /**
      * Check if we have a valid access token (connected)
      */
     public function is_connected() {
         $tokens = $this->get_tokens();
-        return !empty($tokens['access_token']);
+        if (!empty($tokens['access_token'])) {
+            return true;
+        }
+        return $this->is_using_broker();
     }
-    
+
+    // ========================================================
+    // Central broker
+    // ========================================================
+
+    /**
+     * Search Console through the central broker.
+     *
+     * Same endpoint, same IP allow-list and same authorization rules as the
+     * AI relay (see SSF_Bedrock) — what differs is what it protects. Here the
+     * shared secret is one Google OAuth client plus a single refresh token
+     * covering every property in the account, held server-side and never sent
+     * to a WordPress site. Consequences:
+     *
+     *   - Nothing to create in Google Cloud Console per site. One OAuth
+     *     client, one redirect URI, for the entire fleet — instead of a new
+     *     credential (or at least a new redirect URI) for every install.
+     *   - Nothing for a migration, clone, staging copy or backup to leak,
+     *     which is the same reason AWS keys moved behind this broker.
+     *   - No consent screen to click through on each new site. The broker is
+     *     already connected, so a fresh install just works.
+     *
+     * A site the broker declines falls straight back to its own Client ID and
+     * Secret and behaves exactly as it did before any of this existed.
+     */
+    const BROKER_STATUS_TRANSIENT = 'ssf_gsc_broker_status';
+
+    /** Resolved once per request — avoids re-deriving the property repeatedly. */
+    private $broker_property_cache = null;
+
+    /**
+     * The broker's base URL. Deliberately the same deployment as the AI
+     * relay, so there is only ever one piece of infrastructure and one
+     * allow-list to maintain.
+     */
+    private function get_broker_url() {
+        if (defined('SSF_BEDROCK_BROKER_URL') && SSF_BEDROCK_BROKER_URL !== '') {
+            return rtrim(SSF_BEDROCK_BROKER_URL, '/');
+        }
+        if (class_exists('SSF_Bedrock')) {
+            return rtrim(SSF_Bedrock::DEFAULT_BROKER_URL, '/');
+        }
+        return '';
+    }
+
+    /**
+     * Last known verdict on whether this site may use the broker.
+     *
+     * Cached because it depends on the server's IP, which cannot be known
+     * without a network round-trip — and is_connected() is called on page
+     * renders and cron ticks where a synchronous HTTP request would be
+     * unacceptable. One probe, then hours of cached answers.
+     */
+    private function broker_status() {
+        $cached = get_transient(self::BROKER_STATUS_TRANSIENT);
+        if ($cached !== false) {
+            return $cached;
+        }
+        if ($this->get_broker_url() === '') {
+            return 'unavailable';
+        }
+        // Populates the transient as a side effect, whatever the outcome.
+        $this->broker_call('status');
+        $status = get_transient(self::BROKER_STATUS_TRANSIENT);
+        return $status === false ? 'unavailable' : $status;
+    }
+
+    /**
+     * Whether Search Console requests should go through the broker.
+     */
+    public function is_using_broker() {
+        return $this->broker_status() === 'authorized';
+    }
+
+    /**
+     * True when the broker accepts this site but its own Google connection is
+     * missing or expired — the one case where an operator has something to
+     * go and fix, as opposed to a site simply not being on the allow-list.
+     */
+    public function broker_needs_setup() {
+        return $this->broker_status() === 'needs_setup';
+    }
+
+    /**
+     * One request to the broker.
+     *
+     * @return array|WP_Error|null
+     *   - array    the operation's payload, on success.
+     *   - WP_Error the broker served us and the request genuinely failed —
+     *              a real answer, not a reason to fall back.
+     *   - null     the broker declined to serve this site at all, or could
+     *              not be reached. The caller's cue to fall through to this
+     *              site's own OAuth credentials as if no broker existed.
+     */
+    private function broker_call($operation, $params = []) {
+        $base = $this->get_broker_url();
+        if ($base === '') {
+            return null;
+        }
+
+        $headers = ['Content-Type' => 'application/json'];
+        // Only set on a site outside the allow-listed infrastructure that has
+        // been granted individual access. Most sites never have this.
+        if (defined('SSF_BEDROCK_BROKER_TOKEN') && SSF_BEDROCK_BROKER_TOKEN !== '') {
+            $headers['Authorization'] = 'Bearer ' . SSF_BEDROCK_BROKER_TOKEN;
+        }
+
+        $body = array_merge($params, [
+            'operation' => $operation,
+            'site_url'  => home_url('/'),
+        ]);
+
+        $response = wp_remote_post($base . '/gsc/request', [
+            'timeout' => 30,
+            'headers' => $headers,
+            'body'    => wp_json_encode($body),
+        ]);
+
+        if (is_wp_error($response)) {
+            // Cached only briefly: a transient network blip shouldn't lock a
+            // site out of the broker for hours.
+            set_transient(self::BROKER_STATUS_TRANSIENT, 'unreachable', 5 * MINUTE_IN_SECONDS);
+            return null;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        if (!is_array($data)) {
+            $data = [];
+        }
+
+        if ($code === 403) {
+            // A domain-scoping refusal means we ARE served, we just asked for
+            // the wrong property — a real error. Only an identity refusal
+            // means fall back.
+            if (!empty($data['scope_error'])) {
+                set_transient(self::BROKER_STATUS_TRANSIENT, 'authorized', 12 * HOUR_IN_SECONDS);
+                return new WP_Error('gsc_broker_scope', $data['message'] ?? __('That Search Console property does not belong to this site.', 'smart-seo-fixer'));
+            }
+            set_transient(self::BROKER_STATUS_TRANSIENT, 'unauthorized', 12 * HOUR_IN_SECONDS);
+            return null;
+        }
+
+        if ($code === 409) {
+            // Served, but the broker's own Google connection needs redoing.
+            // Fall back to this site's credentials if it has any, and flag the
+            // distinct reason so the UI can say what actually needs fixing.
+            set_transient(self::BROKER_STATUS_TRANSIENT, 'needs_setup', HOUR_IN_SECONDS);
+            if (class_exists('SSF_Logger')) {
+                SSF_Logger::warning('Search Console broker has no valid Google connection: ' . ($data['message'] ?? ''), 'gsc');
+            }
+            return null;
+        }
+
+        // A reply that doesn't speak this endpoint's contract at all — no `ok`
+        // key — isn't a Search Console answer. The likely cause is a broker
+        // deployment predating this endpoint (where /gsc/request falls through
+        // to the AI relay and is rejected for a missing model header), or a
+        // proxy/WAF answering on its behalf. Fall back quietly instead of
+        // reporting a nonsensical error, and re-check within the hour.
+        if (!array_key_exists('ok', $data)) {
+            set_transient(self::BROKER_STATUS_TRANSIENT, 'unavailable', HOUR_IN_SECONDS);
+            return null;
+        }
+
+        set_transient(self::BROKER_STATUS_TRANSIENT, 'authorized', 12 * HOUR_IN_SECONDS);
+
+        if ($code >= 400 || empty($data['ok'])) {
+            $message = $data['message'] ?? sprintf(__('HTTP %d from the Search Console broker.', 'smart-seo-fixer'), $code);
+            if (class_exists('SSF_Logger')) {
+                SSF_Logger::error('GSC broker error: ' . $message, 'gsc', [
+                    'operation' => $operation,
+                    'code'      => $code,
+                ]);
+            }
+            return new WP_Error('gsc_broker_error', $message);
+        }
+
+        return (isset($data['data']) && is_array($data['data'])) ? $data['data'] : [];
+    }
+
+    /**
+     * Run an operation through the broker, or return null to fall back.
+     * Property-scoped operations resolve their property automatically.
+     */
+    private function broker_op($operation, $params = []) {
+        if (!$this->is_using_broker()) {
+            return null;
+        }
+        return $this->broker_call($operation, $params);
+    }
+
+    /**
+     * The Search Console property this site should use, in broker mode.
+     *
+     * Falls back to auto-detection when nothing has been chosen yet: the
+     * broker only ever returns properties matching this site's own domain, so
+     * a single match can be selected with no user involvement — which is what
+     * makes a fresh install work with nothing configured.
+     */
+    private function broker_property() {
+        if ($this->broker_property_cache !== null) {
+            return $this->broker_property_cache;
+        }
+
+        // Read the raw option, not get_site_url() — that now defers back here
+        // when unset, which would recurse.
+        $stored = Smart_SEO_Fixer::get_option('gsc_site_url', '');
+        if (!empty($stored)) {
+            return $this->broker_property_cache = $stored;
+        }
+
+        $result = $this->broker_call('sites_list');
+        if (is_wp_error($result) || !is_array($result)) {
+            return $this->broker_property_cache = '';
+        }
+
+        $sites = [];
+        foreach (($result['siteEntry'] ?? []) as $entry) {
+            if (!empty($entry['siteUrl'])) {
+                $sites[] = ['siteUrl' => $entry['siteUrl'], 'permissionLevel' => $entry['permissionLevel'] ?? ''];
+            }
+        }
+
+        $matched = $this->match_property($sites);
+        if ($matched === '' && count($sites) === 1) {
+            // The broker already filtered to this domain, so a lone entry is
+            // unambiguous even if it didn't match the URL shape exactly.
+            $matched = $sites[0]['siteUrl'];
+        }
+
+        if ($matched !== '') {
+            Smart_SEO_Fixer::update_option('gsc_site_url', $matched);
+        }
+
+        return $this->broker_property_cache = $matched;
+    }
+
+    /**
+     * Pick the property from a list that corresponds to this WordPress site.
+     * Shared by the OAuth callback and broker auto-detection.
+     */
+    private function match_property($sites) {
+        $site_url = home_url('/');
+        $host = wp_parse_url($site_url, PHP_URL_HOST);
+
+        foreach ($sites as $site) {
+            $s = $site['siteUrl'] ?? '';
+            if ($s === '') {
+                continue;
+            }
+            if (rtrim($s, '/') === rtrim($site_url, '/')
+                || $s === $site_url
+                || strpos($site_url, rtrim($s, '/')) === 0
+                || $s === 'sc-domain:' . $host
+                || $s === 'sc-domain:' . preg_replace('/^www\./', '', $host)) {
+                return $s;
+            }
+        }
+
+        return '';
+    }
+
     /**
      * Get the OAuth2 authorization URL
      */
@@ -107,22 +378,11 @@ class SSF_GSC_Client {
                 set_transient('ssf_gsc_sites_cache', $sites, DAY_IN_SECONDS);
 
                 // Try to auto-match the current site
-                $site_url = home_url('/');
-                $host = wp_parse_url($site_url, PHP_URL_HOST);
-                $matched = false;
-                foreach ($sites as $site) {
-                    $s = $site['siteUrl'];
-                    if (rtrim($s, '/') === rtrim($site_url, '/')
-                        || $s === $site_url
-                        || strpos($site_url, rtrim($s, '/')) === 0
-                        || $s === 'sc-domain:' . $host
-                        || $s === 'sc-domain:' . preg_replace('/^www\./', '', $host)) {
-                        Smart_SEO_Fixer::update_option('gsc_site_url', $s);
-                        $matched = true;
-                        break;
-                    }
+                $matched = $this->match_property($sites);
+                if ($matched !== '') {
+                    Smart_SEO_Fixer::update_option('gsc_site_url', $matched);
                 }
-                if ($matched) {
+                if ($matched !== '') {
                     set_transient('ssf_gsc_success', __('Google Search Console connected successfully!', 'smart-seo-fixer'), 60);
                 } else {
                     set_transient('ssf_gsc_success', __('Connected! Please select your site property below.', 'smart-seo-fixer'), 60);
@@ -349,13 +609,16 @@ class SSF_GSC_Client {
      * Get list of verified sites
      */
     public function get_sites() {
-        $url = $this->api_base . '/sites';
-        $result = $this->api_request($url);
-        
+        $result = $this->broker_op('sites_list');
+        if ($result === null) {
+            $url = $this->api_base . '/sites';
+            $result = $this->api_request($url);
+        }
+
         if (is_wp_error($result)) {
             return $result;
         }
-        
+
         $sites = [];
         if (!empty($result['siteEntry'])) {
             foreach ($result['siteEntry'] as $site) {
@@ -370,10 +633,21 @@ class SSF_GSC_Client {
     }
     
     /**
-     * Get the currently selected site URL
+     * Get the currently selected site URL.
+     *
+     * Nothing has ever been selected on a broker-served site, because there
+     * was no connect step to select it in — so resolve (and remember) the
+     * matching property on first use instead of reporting "no site".
      */
     public function get_site_url() {
-        return Smart_SEO_Fixer::get_option('gsc_site_url', '');
+        $stored = Smart_SEO_Fixer::get_option('gsc_site_url', '');
+        if (!empty($stored)) {
+            return $stored;
+        }
+        if ($this->is_using_broker()) {
+            return $this->broker_property();
+        }
+        return '';
     }
     
     /**
@@ -383,22 +657,36 @@ class SSF_GSC_Client {
      * @return array|WP_Error
      */
     public function get_search_analytics($params = []) {
-        $site_url = $this->get_site_url();
-        if (empty($site_url)) {
-            return new WP_Error('gsc_no_site', __('No site selected. Please connect GSC first.', 'smart-seo-fixer'));
-        }
-        
         $defaults = [
             'startDate'  => date('Y-m-d', strtotime('-28 days')),
             'endDate'    => date('Y-m-d', strtotime('-1 day')),
             'dimensions' => ['date'],
             'rowLimit'   => 25000,
         ];
-        
+
         $query = array_merge($defaults, $params);
-        
+
+        if ($this->is_using_broker()) {
+            $property = $this->broker_property();
+            if ($property === '') {
+                return new WP_Error('gsc_no_site', __('No Search Console property found for this site.', 'smart-seo-fixer'));
+            }
+            $result = $this->broker_op('search_analytics', [
+                'property' => $property,
+                'query'    => $query,
+            ]);
+            if ($result !== null) {
+                return $result;
+            }
+        }
+
+        $site_url = $this->get_site_url();
+        if (empty($site_url)) {
+            return new WP_Error('gsc_no_site', __('No site selected. Please connect GSC first.', 'smart-seo-fixer'));
+        }
+
         $url = $this->api_base . '/sites/' . urlencode($site_url) . '/searchAnalytics/query';
-        
+
         return $this->api_request($url, 'POST', $query);
     }
     
@@ -474,16 +762,29 @@ class SSF_GSC_Client {
      * URL Inspection — check if a URL is indexed
      */
     public function inspect_url($url) {
+        if ($this->is_using_broker()) {
+            $property = $this->broker_property();
+            if ($property !== '') {
+                $result = $this->broker_op('url_inspection', [
+                    'property' => $property,
+                    'url'      => $url,
+                ]);
+                if ($result !== null) {
+                    return $result;
+                }
+            }
+        }
+
         $site_url = $this->get_site_url();
         if (empty($site_url)) {
             return new WP_Error('gsc_no_site', __('No site selected.', 'smart-seo-fixer'));
         }
-        
+
         $body = [
             'inspectionUrl' => $url,
             'siteUrl'       => $site_url,
         ];
-        
+
         return $this->api_request($this->inspection_api, 'POST', $body);
     }
     
@@ -491,13 +792,26 @@ class SSF_GSC_Client {
      * Submit a sitemap
      */
     public function submit_sitemap($sitemap_url) {
+        if ($this->is_using_broker()) {
+            $property = $this->broker_property();
+            if ($property !== '') {
+                $result = $this->broker_op('sitemap_submit', [
+                    'property' => $property,
+                    'feedpath' => $sitemap_url,
+                ]);
+                if ($result !== null) {
+                    return $result;
+                }
+            }
+        }
+
         $site_url = $this->get_site_url();
         if (empty($site_url)) {
             return new WP_Error('gsc_no_site', __('No site selected.', 'smart-seo-fixer'));
         }
-        
+
         $url = $this->api_base . '/sites/' . urlencode($site_url) . '/sitemaps/' . urlencode($sitemap_url);
-        
+
         return $this->api_request($url, 'PUT');
     }
     
@@ -505,13 +819,23 @@ class SSF_GSC_Client {
      * List sitemaps
      */
     public function get_sitemaps() {
+        if ($this->is_using_broker()) {
+            $property = $this->broker_property();
+            if ($property !== '') {
+                $result = $this->broker_op('sitemaps_list', ['property' => $property]);
+                if ($result !== null) {
+                    return $result;
+                }
+            }
+        }
+
         $site_url = $this->get_site_url();
         if (empty($site_url)) {
             return new WP_Error('gsc_no_site', __('No site selected.', 'smart-seo-fixer'));
         }
-        
+
         $url = $this->api_base . '/sites/' . urlencode($site_url) . '/sitemaps';
-        
+
         return $this->api_request($url);
     }
     
@@ -583,13 +907,24 @@ class SSF_GSC_Client {
             return null;
         }
         
-        $site_url = $this->get_site_url();
         $tokens = $this->get_tokens();
-        
+
+        // Broker-served sites hold no tokens of their own, so there is no
+        // expiry to report and the property may still need resolving.
+        if (empty($tokens['access_token']) && $this->is_using_broker()) {
+            return [
+                'connected'  => true,
+                'site_url'   => $this->broker_property(),
+                'expires'    => '',
+                'via_broker' => true,
+            ];
+        }
+
         return [
-            'connected' => true,
-            'site_url'  => $site_url,
-            'expires'   => date('Y-m-d H:i:s', $tokens['expires_at'] ?? 0),
+            'connected'  => true,
+            'site_url'   => $this->get_site_url(),
+            'expires'    => date('Y-m-d H:i:s', $tokens['expires_at'] ?? 0),
+            'via_broker' => false,
         ];
     }
 
@@ -603,6 +938,11 @@ class SSF_GSC_Client {
      * will not have it and must reconnect.
      */
     public function has_siteverification_scope() {
+        // The broker's own connection always requests this scope, so a
+        // broker-served site never has the legacy missing-scope problem.
+        if ($this->is_using_broker()) {
+            return true;
+        }
         $tokens = $this->get_tokens();
         if (empty($tokens['scope'])) {
             // Older connections did not persist scope — fall back to a live
@@ -681,15 +1021,18 @@ class SSF_GSC_Client {
      * @return array|WP_Error ['token' => 'content value to put in meta tag']
      */
     public function request_verification_token($site_url) {
-        $endpoint = $this->verification_api . '/token';
-        $body = [
-            'verificationMethod' => 'META',
-            'site' => [
-                'type'       => 'SITE',
-                'identifier' => $site_url,
-            ],
-        ];
-        $result = $this->api_request($endpoint, 'POST', $body);
+        $result = $this->broker_op('verification_token', ['property' => $site_url]);
+        if ($result === null) {
+            $endpoint = $this->verification_api . '/token';
+            $body = [
+                'verificationMethod' => 'META',
+                'site' => [
+                    'type'       => 'SITE',
+                    'identifier' => $site_url,
+                ],
+            ];
+            $result = $this->api_request($endpoint, 'POST', $body);
+        }
         if (is_wp_error($result)) {
             return $result;
         }
@@ -704,6 +1047,10 @@ class SSF_GSC_Client {
      * The verification meta tag must already be live on the homepage.
      */
     public function verify_site($site_url) {
+        $result = $this->broker_op('verify_site', ['property' => $site_url]);
+        if ($result !== null) {
+            return $result;
+        }
         $endpoint = $this->verification_api . '/webResource?verificationMethod=META';
         $body = [
             'site' => [
@@ -753,6 +1100,10 @@ class SSF_GSC_Client {
      * Add a URL-prefix site to Search Console (requires prior verification).
      */
     public function add_site_to_search_console($site_url) {
+        $result = $this->broker_op('site_add', ['property' => $site_url]);
+        if ($result !== null) {
+            return $result;
+        }
         $url = $this->api_base . '/sites/' . rawurlencode($site_url);
         return $this->api_request($url, 'PUT');
     }

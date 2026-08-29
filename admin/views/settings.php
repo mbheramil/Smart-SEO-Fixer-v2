@@ -53,10 +53,16 @@ $gsc_client_secret = Smart_SEO_Fixer::get_option('gsc_client_secret', '');
 $gsc_connected = false;
 $gsc_site_url = '';
 $gsc_sites = [];
+$gsc_via_broker = false;
+$gsc_broker_needs_setup = false;
 if (class_exists('SSF_GSC_Client')) {
     $gsc_client = new SSF_GSC_Client();
     $gsc_connected = $gsc_client->is_connected();
-    $gsc_site_url = Smart_SEO_Fixer::get_option('gsc_site_url', '');
+    // Served by the central broker rather than this site's own OAuth client:
+    // no Client ID/Secret needed here and no Connect step to click through.
+    $gsc_via_broker = $gsc_client->is_using_broker() && !Smart_SEO_Fixer::get_option('gsc_client_id', '');
+    $gsc_broker_needs_setup = $gsc_client->broker_needs_setup();
+    $gsc_site_url = $gsc_client->get_site_url();
     if ($gsc_connected) {
         // Use cached site list first (fast), live fetch as fallback
         $cached = get_transient('ssf_gsc_sites_cache');
@@ -379,6 +385,11 @@ unset($available_post_types['attachment']);
                                 <?php printf(esc_html__('Site: %s', 'smart-seo-fixer'), '<strong>' . esc_html($gsc_site_url) . '</strong>'); ?>
                             </p>
                         <?php endif; ?>
+                        <?php if ($gsc_via_broker): ?>
+                            <p style="margin: 8px 0 0; color: #166534; font-size: 13px;">
+                                <?php esc_html_e('This site is connected automatically — no Client ID, Client Secret or Google Cloud Console setup is needed here. Only the properties belonging to this domain are accessible.', 'smart-seo-fixer'); ?>
+                            </p>
+                        <?php endif; ?>
                     </div>
                     <table class="form-table">
                         <tr>
@@ -435,18 +446,75 @@ unset($available_post_types['attachment']);
                             <span class="dashicons dashicons-superhero" style="vertical-align: text-bottom;"></span>
                             <?php esc_html_e('Auto-Create Property for This Site', 'smart-seo-fixer'); ?>
                         </button>
-                        <button type="button" class="button" id="ssf-gsc-disconnect" style="color: #dc2626; border-color: #dc2626;">
-                            <?php esc_html_e('Disconnect', 'smart-seo-fixer'); ?>
-                        </button>
+                        <?php if (!$gsc_via_broker): ?>
+                            <button type="button" class="button" id="ssf-gsc-disconnect" style="color: #dc2626; border-color: #dc2626;">
+                                <?php esc_html_e('Disconnect', 'smart-seo-fixer'); ?>
+                            </button>
+                        <?php endif; ?>
                     </p>
                     <p class="description" style="margin-top:4px;">
                         <?php esc_html_e('Auto-create will: add this site to Google Search Console, verify ownership via a meta tag, and submit your sitemap — all in one click. Use if the site isn\'t listed yet.', 'smart-seo-fixer'); ?>
                     </p>
                     <div id="ssf-gsc-auto-setup-log" style="display:none; margin-top:12px;"></div>
+
+                    <?php if ($gsc_via_broker): ?>
+                        <?php // Search Console needs no credentials here, but Google Analytics
+                              // shares these same fields and is not brokered — so they stay
+                              // reachable rather than disappearing with the Connect step. ?>
+                        <details style="margin-top: 16px;">
+                            <summary style="cursor: pointer; color: #555; font-size: 13px;">
+                                <?php esc_html_e('Optional: Google OAuth credentials (only needed for Google Analytics)', 'smart-seo-fixer'); ?>
+                            </summary>
+                            <p class="description" style="margin: 8px 0 0;">
+                                <?php esc_html_e('Search Console does not need these. Google Analytics is not covered by the shared connection, so it still uses a Client ID and Secret from your own Google Cloud project.', 'smart-seo-fixer'); ?>
+                            </p>
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row">
+                                        <label for="gsc_client_id"><?php esc_html_e('Client ID', 'smart-seo-fixer'); ?></label>
+                                    </th>
+                                    <td>
+                                        <input type="text"
+                                               name="gsc_client_id"
+                                               id="gsc_client_id"
+                                               value="<?php echo esc_attr($gsc_client_id); ?>"
+                                               class="regular-text"
+                                               placeholder="xxxxxx.apps.googleusercontent.com">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">
+                                        <label for="gsc_client_secret"><?php esc_html_e('Client Secret', 'smart-seo-fixer'); ?></label>
+                                    </th>
+                                    <td>
+                                        <input type="password"
+                                               name="gsc_client_secret"
+                                               id="gsc_client_secret"
+                                               value="<?php echo esc_attr($gsc_client_secret); ?>"
+                                               class="regular-text"
+                                               autocomplete="off">
+                                        <p class="description">
+                                            <?php printf(
+                                                __('Reuse the same pair across all your sites — add this redirect URI to that one OAuth client: %s', 'smart-seo-fixer'),
+                                                '<br><code>' . esc_html(admin_url('admin.php?page=smart-seo-fixer-settings')) . '</code>'
+                                            ); ?>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </details>
+                    <?php endif; ?>
                 <?php else: ?>
                     <p class="description" style="margin-bottom: 16px;">
                         <?php esc_html_e('Connect your Google Search Console to see real search performance data, index status, and more — directly inside WordPress.', 'smart-seo-fixer'); ?>
                     </p>
+                    <?php if ($gsc_broker_needs_setup): ?>
+                        <div class="notice notice-warning inline" style="margin: 0 0 16px;">
+                            <p>
+                                <?php esc_html_e('This site is cleared to use the shared Search Console connection, but that connection needs to be re-authorized before it can serve data. Until then, you can connect this site individually below.', 'smart-seo-fixer'); ?>
+                            </p>
+                        </div>
+                    <?php endif; ?>
                     <table class="form-table">
                         <tr>
                             <th scope="row">
@@ -492,7 +560,17 @@ unset($available_post_types['attachment']);
                     <div style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
                         <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
                             <span class="dashicons dashicons-info" style="font-size: 16px;"></span>
-                            <?php esc_html_e('How to get your credentials:', 'smart-seo-fixer'); ?>
+                            <?php esc_html_e('Already set this up on another site?', 'smart-seo-fixer'); ?>
+                        </p>
+                        <p style="margin: 0 0 10px; color: #1e3a5f; font-size: 13px;">
+                            <?php printf(
+                                /* translators: %s: this site's authorized redirect URI */
+                                __('You do not need a new credential per site. Paste the <strong>same</strong> Client ID and Secret you already use, then add just one more Authorized redirect URI to that existing OAuth client: %s', 'smart-seo-fixer'),
+                                '<br><code>' . esc_html(admin_url('admin.php?page=smart-seo-fixer-settings')) . '</code>'
+                            ); ?>
+                        </p>
+                        <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
+                            <?php esc_html_e('Setting it up for the first time:', 'smart-seo-fixer'); ?>
                         </p>
                         <ol style="margin: 0; padding-left: 20px; color: #1e3a5f; font-size: 13px;">
                             <li><?php printf(
@@ -507,6 +585,7 @@ unset($available_post_types['attachment']);
                                 '<code>' . esc_html(admin_url('admin.php?page=smart-seo-fixer-settings')) . '</code>'
                             ); ?></li>
                             <li><?php esc_html_e('Copy the Client ID and Client Secret here', 'smart-seo-fixer'); ?></li>
+                            <li><?php esc_html_e('Set the OAuth consent screen to "In production" — while it is in "Testing", Google expires the connection every 7 days and the site silently disconnects', 'smart-seo-fixer'); ?></li>
                         </ol>
                     </div>
                 <?php endif; ?>
@@ -528,7 +607,13 @@ unset($available_post_types['attachment']);
 
                 <?php if (empty($gsc_client_id) || empty($gsc_client_secret)): ?>
                     <div class="notice notice-warning inline" style="margin:12px 0;">
-                        <p><?php esc_html_e('First configure your Google OAuth Client ID and Secret in the Google Search Console section above — Analytics uses the same credentials.', 'smart-seo-fixer'); ?></p>
+                        <p><?php
+                            if ($gsc_via_broker) {
+                                esc_html_e('Analytics is not covered by the shared Search Console connection. Add a Client ID and Secret under "Optional: Google OAuth credentials" in the Search Console section above to use it.', 'smart-seo-fixer');
+                            } else {
+                                esc_html_e('First configure your Google OAuth Client ID and Secret in the Google Search Console section above — Analytics uses the same credentials.', 'smart-seo-fixer');
+                            }
+                        ?></p>
                     </div>
                 <?php elseif ($ga_connected): ?>
                     <div style="padding: 12px 16px; background: #d1fae5; border-left: 4px solid #10b981; border-radius: 4px; margin-bottom: 16px;">
