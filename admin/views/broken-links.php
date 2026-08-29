@@ -352,8 +352,8 @@ jQuery(document).ready(function($) {
         if (scanning) return;
         scanning = true;
 
-        var $btn = $(this).prop('disabled', true);
-        $btn.find('.dashicons').addClass('spin');
+        var $btn = $(this);
+        SSF.setLoading($btn, true, '<?php echo esc_js(__('Scanning...', 'smart-seo-fixer')); ?>');
 
         var totalChecked = 0, totalBroken = 0;
         var $status = $('#ssf-bl-scan-status').show();
@@ -363,7 +363,7 @@ jQuery(document).ready(function($) {
 
         function finish(msg, ok) {
             scanning = false;
-            $btn.prop('disabled', false).find('.dashicons').removeClass('spin');
+            SSF.setLoading($btn, false);
             $('#ssf-bl-scan-bar').css('background', ok ? '#059669' : '#dc2626');
             $('#ssf-bl-scan-text').text(msg);
             loadLinks();

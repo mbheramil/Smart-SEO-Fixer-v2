@@ -751,17 +751,17 @@ jQuery(document).ready(function($) {
     // Scan button
     $('#ssf-gsc-scan-indexed').on('click', function() {
         var $btn = $(this);
-        $btn.prop('disabled', true).html('<span class="spinner is-active" style="float:none;margin:0 4px 0 0;"></span> <?php esc_html_e('Scanning...', 'smart-seo-fixer'); ?>');
-        
+        SSF.setLoading($btn, true, '<?php echo esc_js(__('Scanning...', 'smart-seo-fixer')); ?>');
+
         $('#ssf-gsc-index-desc').hide();
         $('#ssf-gsc-index-loading').show();
         $('#ssf-gsc-index-results, #ssf-gsc-index-clean, #ssf-gsc-index-summary').hide();
-        
+
         $.post(ssfAdmin.ajax_url, {
             action: 'ssf_gsc_not_indexed',
             nonce: ssfAdmin.nonce
         }, function(response) {
-            $btn.prop('disabled', false).html('<span class="dashicons dashicons-search" style="vertical-align:text-bottom;"></span> <?php esc_html_e('Scan Now', 'smart-seo-fixer'); ?>');
+            SSF.setLoading($btn, false);
             $('#ssf-gsc-index-loading').hide();
             
             if (!response.success) {

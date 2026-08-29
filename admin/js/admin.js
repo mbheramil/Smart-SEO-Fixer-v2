@@ -152,17 +152,16 @@
         },
         
         /**
-         * Icon-free loading state for a button — plain CSS spinner
-         * (.ssf-spinner), no dashicon. Separate from buttonLoading() above
-         * (which assumes a dashicon already inside the button); used on
-         * pages migrated off dashicons (dashboard, settings). Two modes:
+         * Icon-free, spinner-free loading state for a button — the label
+         * itself shimmers in place (.ssf-thinking), the same idea as
+         * Claude's own "Thinking…" indicator: no ring, no icon, just the
+         * text animating. Two modes:
          *
-         *   setLoading($btn, true)              — keep the button's label
-         *     (hidden) and overlay a centered spinner on top. Use when the
-         *     button shouldn't change size/text, just show "something's
-         *     happening" (e.g. Auto-Create, Refresh).
-         *   setLoading($btn, true, 'Checking…') — replace the label outright
-         *     with "[spinner] Checking…". Use when a status message is
+         *   setLoading($btn, true)              — shimmer the button's
+         *     existing label as-is. Use when the button shouldn't change
+         *     text, just show "something's happening" (e.g. Refresh).
+         *   setLoading($btn, true, 'Checking…') — replace the label with
+         *     the given text, shimmering. Use when a status message is
          *     useful (e.g. Connect to Google, Test Connection).
          */
         setLoading: function($btn, isLoading, loadingText) {
@@ -170,16 +169,10 @@
                 if ($btn.data('ssf-original-html') === undefined) {
                     $btn.data('ssf-original-html', $btn.html());
                 }
-                var spinnerClass = $btn.hasClass('button-primary') ? 'ssf-spinner ssf-spinner-light' : 'ssf-spinner';
-                if (loadingText) {
-                    $btn.prop('disabled', true)
-                        .html('<span class="' + spinnerClass + '"></span> ' + this.escapeHtml(loadingText));
-                } else {
-                    $btn.addClass('ssf-is-loading').prop('disabled', true)
-                        .append('<span class="' + spinnerClass + '"></span>');
-                }
+                var label = loadingText ? this.escapeHtml(loadingText) : $btn.text().trim();
+                $btn.prop('disabled', true).html('<span class="ssf-thinking">' + label + '</span>');
             } else {
-                $btn.removeClass('ssf-is-loading').prop('disabled', false);
+                $btn.prop('disabled', false);
                 var original = $btn.data('ssf-original-html');
                 if (original !== undefined) {
                     $btn.html(original);

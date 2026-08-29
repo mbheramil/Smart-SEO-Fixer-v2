@@ -1956,25 +1956,6 @@ body.ssf-pdf-exporting .ssf-report {
     border-top-color: #fff;
 }
 
-/* A button mid-action: dim the label, show the spinner in its place. */
-.ssf-wrap .button.ssf-is-loading {
-    position: relative;
-    color: transparent !important;
-    pointer-events: none;
-}
-
-.ssf-wrap .button.ssf-is-loading .ssf-spinner {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    margin: -8px 0 0 -8px;
-}
-
-.ssf-wrap .button-primary.ssf-is-loading .ssf-spinner {
-    border-color: rgba(255, 255, 255, 0.35);
-    border-top-color: #fff;
-}
-
 /* ----- Skeleton loaders: shimmer placeholders while content loads ------- */
 .ssf-skeleton {
     position: relative;
@@ -2007,6 +1988,46 @@ body.ssf-pdf-exporting .ssf-report {
 
 .ssf-skeleton-block {
     height: 100px;
+}
+
+/* "Thinking" text — a moving shine sweeps across the label itself, no
+   spinner icon at all. The same idea as Claude's own "Thinking…" state:
+   the text is the loading indicator. */
+.ssf-thinking {
+    background-image: linear-gradient(90deg,
+        var(--ssf-gray-400) 35%,
+        var(--ssf-gray-900) 50%,
+        var(--ssf-gray-400) 65%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: ssf-thinking-sweep 1.6s linear infinite;
+}
+
+/* On a filled primary button the base text is white, so the sweep needs
+   its own lighter palette to stay visible against that fill. */
+.ssf-wrap .button-primary .ssf-thinking,
+.ssf-wrap .button.button-primary .ssf-thinking {
+    background-image: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.5) 35%,
+        rgba(255, 255, 255, 1) 50%,
+        rgba(255, 255, 255, 0.5) 65%);
+}
+
+@keyframes ssf-thinking-sweep {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ssf-thinking {
+        animation: none;
+        -webkit-background-clip: initial;
+        background-clip: initial;
+        background-image: none;
+        color: inherit;
+    }
 }
 
 /* Status pills — color + text only, used in place of an icon + label. */
