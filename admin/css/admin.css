@@ -2175,6 +2175,21 @@ body.ssf-shell-active #wpbody-content {
     animation: ssf-page-in 0.3s var(--ssf-ease) both;
 }
 
+/* Every page still in its old .wrap/.ssf-page-title markup (not yet
+   restyled into borderless widgets like Dashboard) now renders inside the
+   shell's own top bar, which already shows the page title — hide the
+   page's own duplicate title and let its content sit flush instead of with
+   its old standalone-page margin/entrance animation. */
+.ssf-app-content .ssf-page-title,
+.ssf-app-content .ssf-page-header-row {
+    display: none;
+}
+
+.ssf-app-content .ssf-wrap {
+    margin: 0;
+    animation: none;
+}
+
 /* Borderless widgets — whitespace-only separation, no card box, matching
    the Stripe reference exactly (unlike .ssf-card elsewhere in the plugin,
    which keeps a thin border). */

@@ -20,7 +20,28 @@ class SSF_Admin {
      * navigate even mid-rollout. Values are the page slug used in
      * admin.php?page=... .
      */
-    const SHELL_PAGES = ['smart-seo-fixer'];
+    const SHELL_PAGES = [
+        'smart-seo-fixer',
+        'smart-seo-fixer-analyzer',
+        'smart-seo-fixer-bulk-fix',
+        'smart-seo-fixer-posts',
+        'smart-seo-fixer-content-suggestions',
+        'smart-seo-fixer-schema',
+        'smart-seo-fixer-local',
+        'smart-seo-fixer-redirects',
+        'smart-seo-fixer-broken-links',
+        'smart-seo-fixer-404-monitor',
+        'smart-seo-fixer-robots',
+        'smart-seo-fixer-search-performance',
+        'smart-seo-fixer-gsc',
+        'smart-seo-fixer-social-preview',
+        'smart-seo-fixer-keywords',
+        'smart-seo-fixer-jobs',
+        'smart-seo-fixer-history',
+        'smart-seo-fixer-migration',
+        'smart-seo-fixer-debug-log',
+        'smart-seo-fixer-settings',
+    ];
 
     /**
      * Consistent, icon-free page header: title + version badge, optional
@@ -636,151 +657,189 @@ class SSF_Admin {
      * Render SEO Analyzer page
      */
     public function render_analyzer() {
+        $this->render_shell_open('smart-seo-fixer-analyzer');
         include SSF_PLUGIN_DIR . 'admin/views/analyzer.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render Bulk AI Fix page
      */
     public function render_bulk_fix() {
+        $this->render_shell_open('smart-seo-fixer-bulk-fix');
         include SSF_PLUGIN_DIR . 'admin/views/bulk-fix.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render posts page
      */
     public function render_posts_page() {
+        $this->render_shell_open('smart-seo-fixer-posts');
         include SSF_PLUGIN_DIR . 'admin/views/posts.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render settings page
      */
     public function render_settings() {
+        $this->render_shell_open('smart-seo-fixer-settings');
         include SSF_PLUGIN_DIR . 'admin/views/settings.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render local SEO page
      */
     public function render_local_seo() {
+        $this->render_shell_open('smart-seo-fixer-local');
         include SSF_PLUGIN_DIR . 'admin/views/local-seo.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render redirects page
      */
     public function render_redirects_page() {
+        $this->render_shell_open('smart-seo-fixer-redirects');
         include SSF_PLUGIN_DIR . 'admin/views/redirects.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render schema management page
      */
     public function render_schema_page() {
+        $this->render_shell_open('smart-seo-fixer-schema');
         include SSF_PLUGIN_DIR . 'admin/views/schema.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render migration page
      */
     public function render_migration() {
+        $this->render_shell_open('smart-seo-fixer-migration');
         include SSF_PLUGIN_DIR . 'admin/views/migration.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render Search Console Fixer page
      */
     public function render_search_performance() {
+        $this->render_shell_open('smart-seo-fixer-search-performance');
         include SSF_PLUGIN_DIR . 'admin/views/search-performance.php';
+        $this->render_shell_close();
     }
-    
+
     public function render_gsc_page() {
+        $this->render_shell_open('smart-seo-fixer-gsc');
         include SSF_PLUGIN_DIR . 'admin/views/search-console.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render Job Queue page
      */
     public function render_job_queue() {
+        $this->render_shell_open('smart-seo-fixer-jobs');
         include SSF_PLUGIN_DIR . 'admin/views/job-queue.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render Change History page
      */
     public function render_change_history() {
+        $this->render_shell_open('smart-seo-fixer-history');
         include SSF_PLUGIN_DIR . 'admin/views/change-history.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render Broken Links page
      */
     public function render_broken_links() {
+        $this->render_shell_open('smart-seo-fixer-broken-links');
         include SSF_PLUGIN_DIR . 'admin/views/broken-links.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render 404 Monitor page
      */
     public function render_404_monitor() {
+        $this->render_shell_open('smart-seo-fixer-404-monitor');
         include SSF_PLUGIN_DIR . 'admin/views/404-monitor.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render robots.txt Editor page
      */
     public function render_robots_editor() {
+        $this->render_shell_open('smart-seo-fixer-robots');
         include SSF_PLUGIN_DIR . 'admin/views/robots-editor.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render Social Preview page
      */
     public function render_social_preview() {
+        $this->render_shell_open('smart-seo-fixer-social-preview');
         include SSF_PLUGIN_DIR . 'admin/views/social-preview.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render Keyword Tracker page
      */
     public function render_keyword_tracker() {
+        $this->render_shell_open('smart-seo-fixer-keywords');
         include SSF_PLUGIN_DIR . 'admin/views/keyword-tracker.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render Content Suggestions page
      */
     public function render_content_suggestions() {
+        $this->render_shell_open('smart-seo-fixer-content-suggestions');
         include SSF_PLUGIN_DIR . 'admin/views/content-suggestions.php';
+        $this->render_shell_close();
     }
-    
+
     /**
      * Render WP Coding Standards page
      */
     public function render_wp_standards() {
         include SSF_PLUGIN_DIR . 'admin/views/wp-standards.php';
     }
-    
+
     /**
      * Render Performance Profiler page
      */
     public function render_performance() {
         include SSF_PLUGIN_DIR . 'admin/views/performance.php';
     }
-    
+
     /**
      * Render Client Report page
      */
     public function render_client_report() {
         include SSF_PLUGIN_DIR . 'admin/views/client-report.php';
     }
-    
+
     /**
      * Render Debug Log page
      */
     public function render_debug_log() {
+        $this->render_shell_open('smart-seo-fixer-debug-log');
         include SSF_PLUGIN_DIR . 'admin/views/debug-log.php';
+        $this->render_shell_close();
     }
     
     /**
