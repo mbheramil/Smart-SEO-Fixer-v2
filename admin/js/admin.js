@@ -152,6 +152,42 @@
         },
         
         /**
+         * Icon-free loading state for a button — plain CSS spinner
+         * (.ssf-spinner), no dashicon. Separate from buttonLoading() above
+         * (which assumes a dashicon already inside the button); used on
+         * pages migrated off dashicons (dashboard, settings). Two modes:
+         *
+         *   setLoading($btn, true)              — keep the button's label
+         *     (hidden) and overlay a centered spinner on top. Use when the
+         *     button shouldn't change size/text, just show "something's
+         *     happening" (e.g. Auto-Create, Refresh).
+         *   setLoading($btn, true, 'Checking…') — replace the label outright
+         *     with "[spinner] Checking…". Use when a status message is
+         *     useful (e.g. Connect to Google, Test Connection).
+         */
+        setLoading: function($btn, isLoading, loadingText) {
+            if (isLoading) {
+                if ($btn.data('ssf-original-html') === undefined) {
+                    $btn.data('ssf-original-html', $btn.html());
+                }
+                var spinnerClass = $btn.hasClass('button-primary') ? 'ssf-spinner ssf-spinner-light' : 'ssf-spinner';
+                if (loadingText) {
+                    $btn.prop('disabled', true)
+                        .html('<span class="' + spinnerClass + '"></span> ' + this.escapeHtml(loadingText));
+                } else {
+                    $btn.addClass('ssf-is-loading').prop('disabled', true)
+                        .append('<span class="' + spinnerClass + '"></span>');
+                }
+            } else {
+                $btn.removeClass('ssf-is-loading').prop('disabled', false);
+                var original = $btn.data('ssf-original-html');
+                if (original !== undefined) {
+                    $btn.html(original);
+                }
+            }
+        },
+
+        /**
          * Format date
          */
         formatDate: function(dateString) {

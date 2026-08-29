@@ -10,7 +10,34 @@ if (!defined('ABSPATH')) {
 }
 
 class SSF_Admin {
-    
+
+    /**
+     * Consistent, icon-free page header: title + version badge, optional
+     * subtitle and right-aligned actions. Rolling out page by page — only
+     * Dashboard and Settings use this so far; other views keep their own
+     * markup until migrated.
+     *
+     * @param string $title
+     * @param string $subtitle   Optional description shown under the title.
+     * @param string $actions_html Optional pre-rendered HTML (buttons/links) for the right side.
+     */
+    public static function page_header($title, $subtitle = '', $actions_html = '') {
+        echo '<div class="ssf-page-header-row" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">';
+        echo '<div>';
+        echo '<h1 class="ssf-page-title ssf-page-title--plain">'
+            . esc_html($title)
+            . ' <span class="ssf-version">v' . esc_html(SSF_VERSION) . '</span>'
+            . '</h1>';
+        if ($subtitle !== '') {
+            echo '<p class="description" style="margin-top:-10px;">' . esc_html($subtitle) . '</p>';
+        }
+        echo '</div>';
+        if ($actions_html !== '') {
+            echo '<div class="ssf-page-header-actions">' . $actions_html . '</div>';
+        }
+        echo '</div>';
+    }
+
     /**
      * Constructor
      */

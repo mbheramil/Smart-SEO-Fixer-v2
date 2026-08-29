@@ -9,11 +9,7 @@ if (!defined('ABSPATH')) {
 }
 ?>
 <div class="wrap ssf-wrap">
-    <h1 class="ssf-page-title">
-        <span class="dashicons dashicons-chart-line"></span>
-        <?php esc_html_e('Smart SEO Fixer', 'smart-seo-fixer'); ?>
-        <span class="ssf-version">v<?php echo esc_html(SSF_VERSION); ?></span>
-    </h1>
+    <?php SSF_Admin::page_header(__('Smart SEO Fixer', 'smart-seo-fixer')); ?>
     
     <?php if (class_exists('SSF_AI') && !SSF_AI::is_configured()): ?>
     <div class="ssf-notice ssf-notice-warning">
@@ -82,16 +78,12 @@ if (!defined('ABSPATH')) {
 
         <!-- Missing SEO Alert Banner (conditional, populated by JS) -->
         <div class="ssf-missing-seo-banner" id="missing-seo-banner" style="display:none;">
-            <div class="ssf-banner-icon">
-                <span class="dashicons dashicons-warning"></span>
-            </div>
             <div class="ssf-banner-content">
                 <strong id="missing-banner-title"><?php esc_html_e('Posts missing AI-generated SEO', 'smart-seo-fixer'); ?></strong>
                 <p id="missing-banner-desc"></p>
             </div>
             <div class="ssf-banner-actions">
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-bulk-fix&auto=missing')); ?>" class="button button-primary">
-                    <span class="dashicons dashicons-superhero-alt"></span>
                     <?php esc_html_e('Fix Now', 'smart-seo-fixer'); ?>
                 </a>
             </div>
@@ -100,15 +92,12 @@ if (!defined('ABSPATH')) {
         <!-- Quick Actions -->
         <div class="ssf-quick-actions">
             <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-analyzer')); ?>" class="ssf-quick-btn ssf-quick-analyze">
-                <span class="dashicons dashicons-search"></span>
                 <?php esc_html_e('Analyze Posts', 'smart-seo-fixer'); ?>
             </a>
             <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-bulk-fix')); ?>" class="ssf-quick-btn ssf-quick-fix">
-                <span class="dashicons dashicons-superhero-alt"></span>
                 <?php esc_html_e('Bulk AI Fix', 'smart-seo-fixer'); ?>
             </a>
             <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-posts')); ?>" class="ssf-quick-btn ssf-quick-posts">
-                <span class="dashicons dashicons-admin-page"></span>
                 <?php esc_html_e('All Posts', 'smart-seo-fixer'); ?>
             </a>
         </div>
@@ -117,30 +106,28 @@ if (!defined('ABSPATH')) {
         <div class="ssf-content-grid">
             <div class="ssf-card ssf-card-attention">
                 <div class="ssf-card-header">
-                    <h2>
-                        <span class="dashicons dashicons-flag"></span>
-                        <?php esc_html_e('Needs Attention', 'smart-seo-fixer'); ?>
-                    </h2>
+                    <h2><?php esc_html_e('Needs Attention', 'smart-seo-fixer'); ?></h2>
                     <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-analyzer&score_filter=poor')); ?>" class="ssf-link">
                         <?php esc_html_e('View All', 'smart-seo-fixer'); ?>
                     </a>
                 </div>
                 <div class="ssf-card-body">
                     <div class="ssf-post-list" id="needs-attention-list">
-                        <div class="ssf-loading"><span class="spinner is-active"></span></div>
+                        <?php for ($i = 0; $i < 3; $i++): ?>
+                            <div class="ssf-skeleton ssf-skeleton-row"></div>
+                        <?php endfor; ?>
                     </div>
                 </div>
             </div>
             <div class="ssf-card ssf-card-recent">
                 <div class="ssf-card-header">
-                    <h2>
-                        <span class="dashicons dashicons-clock"></span>
-                        <?php esc_html_e('Recently Analyzed', 'smart-seo-fixer'); ?>
-                    </h2>
+                    <h2><?php esc_html_e('Recently Analyzed', 'smart-seo-fixer'); ?></h2>
                 </div>
                 <div class="ssf-card-body">
                     <div class="ssf-post-list" id="recent-list">
-                        <div class="ssf-loading"><span class="spinner is-active"></span></div>
+                        <?php for ($i = 0; $i < 3; $i++): ?>
+                            <div class="ssf-skeleton ssf-skeleton-row"></div>
+                        <?php endfor; ?>
                     </div>
                 </div>
             </div>
@@ -151,23 +138,18 @@ if (!defined('ABSPATH')) {
             <h3 class="ssf-tools-heading"><?php esc_html_e('Content & Analysis', 'smart-seo-fixer'); ?></h3>
             <div class="ssf-tools-grid">
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-schema')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-shortcode" style="color:#d97706;"></span>
                     <?php esc_html_e('Schema', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-social-preview')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-share-alt2" style="color:#1877F2;"></span>
                     <?php esc_html_e('Social Preview', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-content-suggestions')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-lightbulb" style="color:#f59e0b;"></span>
                     <?php esc_html_e('Content Tips', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-keywords')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-chart-bar" style="color:#a21caf;"></span>
                     <?php esc_html_e('Keywords', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-local')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-location" style="color:#059669;"></span>
                     <?php esc_html_e('Local SEO', 'smart-seo-fixer'); ?>
                 </a>
             </div>
@@ -175,27 +157,21 @@ if (!defined('ABSPATH')) {
             <h3 class="ssf-tools-heading"><?php esc_html_e('Technical SEO', 'smart-seo-fixer'); ?></h3>
             <div class="ssf-tools-grid">
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-redirects')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-randomize" style="color:#047857;"></span>
                     <?php esc_html_e('Redirects', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-404-monitor')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-dismiss" style="color:#e11d48;"></span>
                     <?php esc_html_e('404 Monitor', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-broken-links')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-editor-unlink" style="color:#c2410c;"></span>
                     <?php esc_html_e('Broken Links', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-robots')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-media-text" style="color:#0d9488;"></span>
                     <?php esc_html_e('robots.txt', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-gsc')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-flag" style="color:#b91c1c;"></span>
                     <?php esc_html_e('Indexability', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-search-performance')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-chart-area" style="color:#2563eb;"></span>
                     <?php esc_html_e('Search Perf.', 'smart-seo-fixer'); ?>
                 </a>
             </div>
@@ -203,23 +179,18 @@ if (!defined('ABSPATH')) {
             <h3 class="ssf-tools-heading"><?php esc_html_e('Reports & Admin', 'smart-seo-fixer'); ?></h3>
             <div class="ssf-tools-grid">
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-history')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-backup" style="color:#0e7490;"></span>
                     <?php esc_html_e('History', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-settings')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-admin-settings" style="color:#374151;"></span>
                     <?php esc_html_e('Settings', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-migration')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-migrate" style="color:#7c3aed;"></span>
                     <?php esc_html_e('Migration', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-jobs')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-clock" style="color:#5b21b6;"></span>
                     <?php esc_html_e('Jobs', 'smart-seo-fixer'); ?>
                 </a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-debug-log')); ?>" class="ssf-tool-link">
-                    <span class="dashicons dashicons-code-standards" style="color:#991b1b;"></span>
                     <?php esc_html_e('Debug Log', 'smart-seo-fixer'); ?>
                 </a>
             </div>
@@ -356,15 +327,12 @@ if (!defined('ABSPATH')) {
 
 /* ── Missing SEO Banner ──────────────────────────── */
 .ssf-missing-seo-banner { display: flex; align-items: center; gap: 16px; padding: 14px 20px; margin-bottom: 20px; background: #fefce8; border: 1px solid #facc15; border-left: 4px solid #d97706; border-radius: var(--ssf-radius); }
-.ssf-banner-icon { flex-shrink: 0; width: 36px; height: 36px; background: #d97706; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-.ssf-banner-icon .dashicons { color: #fff; font-size: 18px; width: 18px; height: 18px; }
 .ssf-banner-content { flex: 1; }
 .ssf-banner-content strong { display: block; color: #92400e; font-size: 13px; margin-bottom: 2px; }
 .ssf-banner-content p { margin: 0; color: #78350f; font-size: 12px; line-height: 1.4; }
 .ssf-banner-actions { flex-shrink: 0; }
 .ssf-banner-actions .button-primary { background: #d97706; border-color: #b45309; padding: 5px 14px; height: auto; display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 12px; white-space: nowrap; text-decoration: none; }
 .ssf-banner-actions .button-primary:hover { background: #b45309; border-color: #92400e; }
-.ssf-banner-actions .button-primary .dashicons { font-size: 14px; width: 14px; height: 14px; line-height: 14px; }
 
 /* ── Quick Actions ───────────────────────────────── */
 .ssf-quick-actions {
@@ -378,7 +346,6 @@ if (!defined('ABSPATH')) {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
     padding: 14px 20px;
     border-radius: var(--ssf-radius);
     font-size: 14px;
@@ -386,12 +353,6 @@ if (!defined('ABSPATH')) {
     text-decoration: none;
     transition: all 0.2s;
     color: #fff;
-}
-
-.ssf-quick-btn .dashicons {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
 }
 
 .ssf-quick-analyze { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
@@ -435,7 +396,6 @@ if (!defined('ABSPATH')) {
 .ssf-tool-link {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
     padding: 7px 14px;
     background: var(--ssf-gray-50);
     border: 1px solid var(--ssf-gray-200);
@@ -452,12 +412,6 @@ if (!defined('ABSPATH')) {
     border-color: var(--ssf-primary);
     color: var(--ssf-primary);
     box-shadow: 0 1px 4px rgba(37,99,235,0.12);
-}
-
-.ssf-tool-link .dashicons {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
 }
 
 /* ── Responsive ──────────────────────────────────── */

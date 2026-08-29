@@ -1917,3 +1917,123 @@ body.ssf-pdf-exporting .ssf-report {
     }
 }
 
+/* ==========================================================================
+   Design System v3 — icon-free layer
+   No decorative glyphs (dashicons or otherwise): status/emphasis is carried
+   by color, type weight, and pills instead. Rolling out page by page,
+   starting with the dashboard and settings screens — pages not yet migrated
+   are unaffected, since this only adds new classes rather than removing the
+   dashicon rules above.
+   ========================================================================== */
+
+/* ----- Spinner: a plain rotating ring, no icon -------------------------- */
+.ssf-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--ssf-gray-200);
+    border-top-color: var(--ssf-primary);
+    border-radius: 50%;
+    animation: ssf-spin 0.7s linear infinite;
+    vertical-align: middle;
+}
+
+.ssf-spinner-lg {
+    width: 28px;
+    height: 28px;
+    border-width: 3px;
+}
+
+.ssf-spinner-light {
+    border-color: rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+}
+
+/* A button mid-action: dim the label, show the spinner in its place. */
+.ssf-wrap .button.ssf-is-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+}
+
+.ssf-wrap .button.ssf-is-loading .ssf-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin: -8px 0 0 -8px;
+}
+
+.ssf-wrap .button-primary.ssf-is-loading .ssf-spinner {
+    border-color: rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+}
+
+/* ----- Skeleton loaders: shimmer placeholders while content loads ------- */
+.ssf-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--ssf-gray-100);
+    border-radius: var(--ssf-radius-sm);
+}
+
+.ssf-skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.55) 45%,
+        rgba(255, 255, 255, 0.55) 55%,
+        transparent 100%);
+    background-size: 200% 100%;
+    animation: ssf-shimmer 1.6s linear infinite;
+}
+
+.ssf-skeleton-row {
+    height: 16px;
+    margin: 10px 0;
+}
+
+.ssf-skeleton-row:first-child { margin-top: 0; }
+
+.ssf-skeleton-row--sm { height: 12px; width: 60%; }
+
+.ssf-skeleton-block {
+    height: 100px;
+}
+
+/* Status pills — color + text only, used in place of an icon + label. */
+.ssf-wrap .ssf-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: var(--ssf-radius-full);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.6;
+    border: 1px solid transparent;
+}
+
+.ssf-wrap .ssf-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.ssf-wrap .ssf-pill-success { background: var(--ssf-success-soft); color: #166534; }
+.ssf-wrap .ssf-pill-success .ssf-pill-dot { background: var(--ssf-success); }
+.ssf-wrap .ssf-pill-warning { background: var(--ssf-warning-soft); color: #92400e; }
+.ssf-wrap .ssf-pill-warning .ssf-pill-dot { background: var(--ssf-warning); }
+.ssf-wrap .ssf-pill-danger { background: var(--ssf-danger-soft); color: #991b1b; }
+.ssf-wrap .ssf-pill-danger .ssf-pill-dot { background: var(--ssf-danger); }
+.ssf-wrap .ssf-pill-neutral { background: var(--ssf-gray-100); color: var(--ssf-gray-500); }
+.ssf-wrap .ssf-pill-neutral .ssf-pill-dot { background: var(--ssf-gray-400); }
+
+/* Plain page title, no icon box (dashboard + settings use this instead of
+   the gradient icon square in .ssf-page-title .dashicons above). */
+.ssf-wrap .ssf-page-title--plain {
+    gap: 12px;
+}
+

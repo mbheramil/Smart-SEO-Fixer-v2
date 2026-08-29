@@ -123,18 +123,13 @@ $available_post_types = get_post_types(['public' => true], 'objects');
 unset($available_post_types['attachment']);
 ?>
 <div class="wrap ssf-wrap">
-    <h1 class="ssf-page-title">
-        <span class="dashicons dashicons-admin-settings"></span>
-        <?php esc_html_e('Smart SEO Fixer Settings', 'smart-seo-fixer'); ?>
-        <span class="ssf-version">v<?php echo esc_html(SSF_VERSION); ?></span>
-    </h1>
+    <?php SSF_Admin::page_header(__('Smart SEO Fixer Settings', 'smart-seo-fixer')); ?>
     
     <form id="ssf-settings-form" class="ssf-settings-form">
                 <!-- AI Provider Settings -->
         <div class="ssf-card">
             <div class="ssf-card-header">
                 <h2>
-                    <span class="dashicons dashicons-cloud"></span>
                     <?php esc_html_e('AI Provider', 'smart-seo-fixer'); ?>
                 </h2>
             </div>
@@ -150,9 +145,8 @@ unset($available_post_types['attachment']);
                                 <option value="claude"  <?php selected($ai_provider, 'claude'); ?>>Anthropic Claude (Direct)</option>
                                 <option value="gemini"  <?php selected($ai_provider, 'gemini'); ?>>Google Gemini</option>
                             </select>
-                            <span id="ssf-ai-status" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;margin-left:10px;
-                                <?php echo $is_configured ? 'background:#dcfce7;color:#166534;border:1px solid #bbf7d0;' : 'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;'; ?>">
-                                <span id="ssf-ai-status-dot" style="width:8px;height:8px;border-radius:50%;background:<?php echo $is_configured ? '#16a34a' : '#9ca3af'; ?>;"></span>
+                            <span id="ssf-ai-status" class="ssf-pill <?php echo $is_configured ? 'ssf-pill-success' : 'ssf-pill-neutral'; ?>" style="margin-left:10px;">
+                                <span id="ssf-ai-status-dot" class="ssf-pill-dot"></span>
                                 <span id="ssf-ai-status-text"><?php echo $is_configured ? esc_html__('Configured', 'smart-seo-fixer') : esc_html__('Not configured', 'smart-seo-fixer'); ?></span>
                             </span>
                         </td>
@@ -173,26 +167,24 @@ unset($available_post_types['attachment']);
                         // even trying.
                         ?>
                         <button type="button" class="button ssf-test-btn" id="ssf-test-bedrock" data-provider="bedrock">
-                            <span class="dashicons dashicons-controls-play" style="margin-top:3px;"></span>
                             <?php esc_html_e('Test Connection', 'smart-seo-fixer'); ?>
                         </button>
                     </div>
                     <?php if ($using_consts): ?>
                         <p class="description" style="margin:0 0 12px;">
-                            <span style="color:#166534;font-weight:600;">&#128274; <?php esc_html_e('Credentials are set via wp-config.php constants.', 'smart-seo-fixer'); ?></span>
+                            <span style="color:#166534;font-weight:600;"><?php esc_html_e('Credentials are set via wp-config.php constants.', 'smart-seo-fixer'); ?></span>
                         </p>
                         <p style="margin:0 0 4px;">
-                            <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;
-                                <?php echo $bedrock_configured ? 'background:#dcfce7;color:#166534;border:1px solid #bbf7d0;' : 'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;'; ?>">
-                                <span style="width:8px;height:8px;border-radius:50%;background:<?php echo $bedrock_configured ? '#16a34a' : '#9ca3af'; ?>;"></span>
+                            <span class="ssf-pill <?php echo $bedrock_configured ? 'ssf-pill-success' : 'ssf-pill-neutral'; ?>">
+                                <span class="ssf-pill-dot"></span>
                                 <?php echo $bedrock_configured ? esc_html__('Configured', 'smart-seo-fixer') : esc_html__('Not configured', 'smart-seo-fixer'); ?>
                             </span>
                         </p>
                     <?php else: ?>
                         <?php if ($bedrock_via_broker_only): ?>
                         <p style="margin:0 0 4px;">
-                            <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;">
-                                <span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span>
+                            <span class="ssf-pill ssf-pill-success">
+                                <span class="ssf-pill-dot"></span>
                                 <?php esc_html_e('Configured', 'smart-seo-fixer'); ?>
                             </span>
                         </p>
@@ -260,7 +252,6 @@ unset($available_post_types['attachment']);
                     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
                         <h3 style="margin:0;"><?php esc_html_e('OpenAI Configuration', 'smart-seo-fixer'); ?></h3>
                         <button type="button" class="button ssf-test-btn" id="ssf-test-openai" data-provider="openai" <?php echo empty($openai_api_key) ? 'disabled' : ''; ?>>
-                            <span class="dashicons dashicons-controls-play" style="margin-top:3px;"></span>
                             <?php esc_html_e('Test Connection', 'smart-seo-fixer'); ?>
                         </button>
                     </div>
@@ -297,7 +288,6 @@ unset($available_post_types['attachment']);
                     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
                         <h3 style="margin:0;"><?php esc_html_e('Anthropic Claude Configuration', 'smart-seo-fixer'); ?></h3>
                         <button type="button" class="button ssf-test-btn" id="ssf-test-claude" data-provider="claude" <?php echo empty($claude_api_key) ? 'disabled' : ''; ?>>
-                            <span class="dashicons dashicons-controls-play" style="margin-top:3px;"></span>
                             <?php esc_html_e('Test Connection', 'smart-seo-fixer'); ?>
                         </button>
                     </div>
@@ -332,7 +322,6 @@ unset($available_post_types['attachment']);
                     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
                         <h3 style="margin:0;"><?php esc_html_e('Google Gemini Configuration', 'smart-seo-fixer'); ?></h3>
                         <button type="button" class="button ssf-test-btn" id="ssf-test-gemini" data-provider="gemini" <?php echo empty($gemini_api_key) ? 'disabled' : ''; ?>>
-                            <span class="dashicons dashicons-controls-play" style="margin-top:3px;"></span>
                             <?php esc_html_e('Test Connection', 'smart-seo-fixer'); ?>
                         </button>
                     </div>
@@ -367,7 +356,6 @@ unset($available_post_types['attachment']);
         <div class="ssf-card">
             <div class="ssf-card-header">
                 <h2>
-                    <span class="dashicons dashicons-google"></span>
                     <?php esc_html_e('Google Search Console', 'smart-seo-fixer'); ?>
                 </h2>
             </div>
@@ -389,7 +377,6 @@ unset($available_post_types['attachment']);
                 <?php if ($gsc_connected): ?>
                     <div style="padding: 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; margin-bottom: 16px;">
                         <p style="margin: 0 0 8px; font-weight: 600; color: #15803d;">
-                            <span class="dashicons dashicons-yes-alt" style="color: #16a34a;"></span>
                             <?php esc_html_e('Connected to Google Search Console', 'smart-seo-fixer'); ?>
                         </p>
                         <?php if ($gsc_site_url): ?>
@@ -421,7 +408,6 @@ unset($available_post_types['attachment']);
                                     <?php endforeach; ?>
                                 </select>
                                 <button type="button" class="button button-small" id="ssf-gsc-refresh-sites" style="vertical-align: middle;">
-                                    <span class="dashicons dashicons-update" style="vertical-align: text-bottom; font-size: 16px; width: 16px; height: 16px;"></span>
                                     <?php esc_html_e('Refresh', 'smart-seo-fixer'); ?>
                                 </button>
                                 <p class="description">
@@ -430,7 +416,6 @@ unset($available_post_types['attachment']);
                                 <?php else: ?>
                                 <div style="margin-bottom: 8px;">
                                     <button type="button" class="button button-primary" id="ssf-gsc-refresh-sites">
-                                        <span class="dashicons dashicons-update" style="vertical-align: text-bottom;"></span>
                                         <?php esc_html_e('Load Site List', 'smart-seo-fixer'); ?>
                                     </button>
                                     <span id="ssf-gsc-refresh-status" style="margin-left: 8px; color: #666;"></span>
@@ -451,11 +436,9 @@ unset($available_post_types['attachment']);
                     </table>
                     <p>
                         <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-search-performance')); ?>" class="button button-primary">
-                            <span class="dashicons dashicons-chart-area" style="vertical-align: text-bottom;"></span>
                             <?php esc_html_e('View Search Performance', 'smart-seo-fixer'); ?>
                         </a>
                         <button type="button" class="button button-secondary" id="ssf-gsc-auto-setup">
-                            <span class="dashicons dashicons-superhero" style="vertical-align: text-bottom;"></span>
                             <?php esc_html_e('Auto-Create Property for This Site', 'smart-seo-fixer'); ?>
                         </button>
                         <?php if (!$gsc_via_broker): ?>
@@ -530,7 +513,6 @@ unset($available_post_types['attachment']);
 
                     <p>
                         <button type="button" class="button button-primary button-large" id="ssf-gsc-broker-connect">
-                            <span class="dashicons dashicons-google" style="vertical-align: text-bottom;"></span>
                             <?php esc_html_e('Connect to Google', 'smart-seo-fixer'); ?>
                         </button>
                         <span id="ssf-gsc-broker-connect-status" style="margin-left: 8px; color: #666;"></span>
@@ -576,7 +558,6 @@ unset($available_post_types['attachment']);
                             <?php if (!empty($gsc_client_id) && !empty($gsc_client_secret)): ?>
                                 <p>
                                     <a href="<?php echo esc_url($gsc_client->get_auth_url()); ?>" class="button button-primary">
-                                        <span class="dashicons dashicons-google" style="vertical-align: text-bottom;"></span>
                                         <?php esc_html_e('Connect Google Search Console', 'smart-seo-fixer'); ?>
                                     </a>
                                 </p>
@@ -588,7 +569,6 @@ unset($available_post_types['attachment']);
 
                             <div style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
                                 <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
-                                    <span class="dashicons dashicons-info" style="font-size: 16px;"></span>
                                     <?php esc_html_e('Already set this up on another site?', 'smart-seo-fixer'); ?>
                                 </p>
                                 <p style="margin: 0 0 10px; color: #1e3a5f; font-size: 13px;">
@@ -627,7 +607,6 @@ unset($available_post_types['attachment']);
         <div class="ssf-card">
             <div class="ssf-card-header">
                 <h2>
-                    <span class="dashicons dashicons-chart-area"></span>
                     <?php esc_html_e('Google Analytics (GA4)', 'smart-seo-fixer'); ?>
                 </h2>
             </div>
@@ -638,7 +617,6 @@ unset($available_post_types['attachment']);
 
                 <?php if ($ga_connected): ?>
                     <div style="padding: 12px 16px; background: #d1fae5; border-left: 4px solid #10b981; border-radius: 4px; margin-bottom: 16px;">
-                        <span class="dashicons dashicons-yes-alt" style="color: #10b981; vertical-align: middle;"></span>
                         <strong style="color: #047857;"><?php esc_html_e('Connected to Google Analytics', 'smart-seo-fixer'); ?></strong>
                         <?php if (!empty($ga_measurement_id)): ?>
                             <span style="margin-left:8px; color:#047857;">
@@ -655,15 +633,12 @@ unset($available_post_types['attachment']);
 
                     <p style="display:flex; gap:8px; flex-wrap:wrap;">
                         <button type="button" class="button button-primary" id="ssf-ga-auto-setup">
-                            <span class="dashicons dashicons-plus-alt2" style="vertical-align:text-bottom;"></span>
                             <?php esc_html_e('Auto-Create GA4 Property for This Site', 'smart-seo-fixer'); ?>
                         </button>
                         <button type="button" class="button" id="ssf-ga-use-existing">
-                            <span class="dashicons dashicons-admin-links" style="vertical-align:text-bottom;"></span>
                             <?php esc_html_e('Use Existing Property', 'smart-seo-fixer'); ?>
                         </button>
                         <button type="button" class="button" id="ssf-ga-test-report">
-                            <span class="dashicons dashicons-chart-line" style="vertical-align:text-bottom;"></span>
                             <?php esc_html_e('Test Data Fetch (Last 7 Days)', 'smart-seo-fixer'); ?>
                         </button>
                         <?php if (!$ga_via_broker): ?>
@@ -726,7 +701,6 @@ unset($available_post_types['attachment']);
 
                     <p>
                         <button type="button" class="button button-primary button-large" id="ssf-ga-broker-connect">
-                            <span class="dashicons dashicons-google" style="vertical-align: text-bottom;"></span>
                             <?php esc_html_e('Connect to Google', 'smart-seo-fixer'); ?>
                         </button>
                         <span id="ssf-ga-broker-connect-status" style="margin-left: 8px; color: #666;"></span>
@@ -743,7 +717,6 @@ unset($available_post_types['attachment']);
                             <?php if (!empty($gsc_client_id) && !empty($gsc_client_secret)): ?>
                                 <p>
                                     <a href="<?php echo esc_url($ga_client ? $ga_client->get_auth_url() : '#'); ?>" class="button button-primary">
-                                        <span class="dashicons dashicons-google" style="vertical-align: text-bottom;"></span>
                                         <?php esc_html_e('Connect Google Analytics', 'smart-seo-fixer'); ?>
                                     </a>
                                 </p>
@@ -754,7 +727,6 @@ unset($available_post_types['attachment']);
                             <?php endif; ?>
                             <div style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
                                 <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
-                                    <span class="dashicons dashicons-info" style="font-size: 16px;"></span>
                                     <?php esc_html_e('One-time setup in Google Cloud:', 'smart-seo-fixer'); ?>
                                 </p>
                                 <ol style="margin: 0; padding-left: 20px; color: #1e3a5f; font-size: 13px;">
@@ -780,7 +752,6 @@ unset($available_post_types['attachment']);
         <div class="ssf-card">
             <div class="ssf-card-header">
                 <h2>
-                    <span class="dashicons dashicons-admin-generic"></span>
                     <?php esc_html_e('General Settings', 'smart-seo-fixer'); ?>
                 </h2>
             </div>
@@ -833,7 +804,6 @@ unset($available_post_types['attachment']);
         <div class="ssf-card">
             <div class="ssf-card-header">
                 <h2>
-                    <span class="dashicons dashicons-admin-home"></span>
                     <?php esc_html_e('Homepage SEO', 'smart-seo-fixer'); ?>
                 </h2>
             </div>
@@ -882,7 +852,6 @@ unset($available_post_types['attachment']);
         <div class="ssf-card">
             <div class="ssf-card-header">
                 <h2>
-                    <span class="dashicons dashicons-admin-plugins"></span>
                     <?php esc_html_e('Features', 'smart-seo-fixer'); ?>
                 </h2>
             </div>
@@ -975,7 +944,6 @@ unset($available_post_types['attachment']);
                             $cron_last = get_option('ssf_cron_last_run', null);
                             if ($cron_next): ?>
                                 <p class="description" style="margin-top: 6px; color: #059669;">
-                                    <span class="dashicons dashicons-clock" style="font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom;"></span>
                                     <?php printf(
                                         esc_html__('Next run: %s', 'smart-seo-fixer'),
                                         esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $cron_next))
@@ -1038,7 +1006,6 @@ unset($available_post_types['attachment']);
 
                             <p style="margin: 10px 0 0;">
                                 <button type="button" class="button" id="ssf-test-vision-btn">
-                                    <span class="dashicons dashicons-visibility" style="margin-top: 4px;"></span>
                                     <?php esc_html_e('Test AI Vision', 'smart-seo-fixer'); ?>
                                 </button>
                                 <span id="ssf-test-vision-status" style="margin-left: 8px;"></span>
@@ -1109,11 +1076,9 @@ unset($available_post_types['attachment']);
                                 <?php endif; ?>
 
                                 <button type="button" class="button button-secondary" id="ssf-bulk-alt-btn">
-                                    <span class="dashicons dashicons-images-alt2" style="margin-top: 4px;"></span>
                                     <?php esc_html_e('Generate Missing Alt Text', 'smart-seo-fixer'); ?>
                                 </button>
                                 <button type="button" class="button button-secondary" id="ssf-regen-alt-btn">
-                                    <span class="dashicons dashicons-update" style="margin-top: 4px;"></span>
                                     <?php esc_html_e('Rewrite Existing Alt Text', 'smart-seo-fixer'); ?>
                                 </button>
                                 <button type="button" class="button" id="ssf-bulk-alt-stop" style="display:none;">
@@ -1219,7 +1184,6 @@ unset($available_post_types['attachment']);
                             <?php if (!empty($conflicting_plugins)): ?>
                             <div style="margin-top: 8px; padding: 10px 14px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px;">
                                 <strong style="color: #856404;">
-                                    <span class="dashicons dashicons-warning" style="font-size: 16px; width: 16px; height: 16px;"></span>
                                     <?php esc_html_e('Conflicting plugin detected:', 'smart-seo-fixer'); ?>
                                 </strong>
                                 <span style="color: #856404;"><?php echo esc_html(implode(', ', $conflicting_plugins)); ?></span>
@@ -1232,7 +1196,6 @@ unset($available_post_types['attachment']);
                             <?php elseif ($disable_other_seo_output): ?>
                             <div style="margin-top: 8px; padding: 10px 14px; background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px;">
                                 <strong style="color: #0c5460;">
-                                    <span class="dashicons dashicons-info" style="font-size: 16px; width: 16px; height: 16px;"></span>
                                     <?php esc_html_e('Other SEO plugin output is suppressed.', 'smart-seo-fixer'); ?>
                                 </strong>
                                 <p class="description" style="margin: 5px 0 0; color: #0c5460;">
@@ -1290,16 +1253,11 @@ jQuery(document).ready(function($) {
     });
 
     function updateStatusBadge(configured) {
-        var $dot = $('#ssf-ai-status-dot'), $text = $('#ssf-ai-status-text'), $badge = $('#ssf-ai-status');
-        if (configured) {
-            $badge.css({background:'#dcfce7', color:'#166534', border:'1px solid #bbf7d0'});
-            $dot.css('background','#16a34a');
-            $text.text('<?php echo esc_js(__('Configured', 'smart-seo-fixer')); ?>');
-        } else {
-            $badge.css({background:'#f3f4f6', color:'#6b7280', border:'1px solid #e5e7eb'});
-            $dot.css('background','#9ca3af');
-            $text.text('<?php echo esc_js(__('Not configured', 'smart-seo-fixer')); ?>');
-        }
+        var $text = $('#ssf-ai-status-text'), $badge = $('#ssf-ai-status');
+        $badge.toggleClass('ssf-pill-success', configured).toggleClass('ssf-pill-neutral', !configured);
+        $text.text(configured
+            ? '<?php echo esc_js(__('Configured', 'smart-seo-fixer')); ?>'
+            : '<?php echo esc_js(__('Not configured', 'smart-seo-fixer')); ?>');
     }
 
     // ─── Toggle secret visibility (generic) ───
@@ -1330,11 +1288,11 @@ jQuery(document).ready(function($) {
 
     // ─── Test Connection (unified) ───
     $(document).on('click', '.ssf-test-btn', function() {
-        var $btn = $(this).prop('disabled', true);
+        var $btn = $(this);
         var provider = $btn.data('provider');
         var $result = $('#ssf-test-result-' + provider);
 
-        $btn.find('.dashicons').removeClass('dashicons-controls-play').addClass('dashicons-update ssf-spin');
+        SSF.setLoading($btn, true, '<?php echo esc_js(__('Testing…', 'smart-seo-fixer')); ?>');
         $result.hide();
 
         var postData = {
@@ -1360,26 +1318,24 @@ jQuery(document).ready(function($) {
         }
 
         $.post(ssfAdmin.ajax_url, postData, function(r) {
-            $btn.prop('disabled', false);
-            $btn.find('.dashicons').removeClass('dashicons-update ssf-spin').addClass('dashicons-controls-play');
+            SSF.setLoading($btn, false);
 
             if (r.success) {
                 $result.css({background:'#dcfce7', border:'1px solid #bbf7d0', color:'#166534'})
-                       .html('<strong>&#10003; Connected!</strong> Model responded: <em>' + $('<div>').text(r.data.reply).html() + '</em>')
+                       .html('<strong><?php echo esc_js(__('Connected!', 'smart-seo-fixer')); ?></strong> <?php echo esc_js(__('Model responded:', 'smart-seo-fixer')); ?> <em>' + $('<div>').text(r.data.reply).html() + '</em>')
                        .show();
                 updateStatusBadge(true);
             } else {
                 var msg = r.data.message || 'Unknown error';
                 $result.css({background:'#fef2f2', border:'1px solid #fecaca', color:'#991b1b'})
-                       .html('<strong>&#10007; Failed:</strong> ' + $('<div>').text(msg).html())
+                       .html('<strong><?php echo esc_js(__('Failed:', 'smart-seo-fixer')); ?></strong> ' + $('<div>').text(msg).html())
                        .show();
                 updateStatusBadge(false);
             }
         }).fail(function() {
-            $btn.prop('disabled', false);
-            $btn.find('.dashicons').removeClass('dashicons-update ssf-spin').addClass('dashicons-controls-play');
+            SSF.setLoading($btn, false);
             $result.css({background:'#fef2f2', border:'1px solid #fecaca', color:'#991b1b'})
-                   .html('<strong>&#10007; Request failed.</strong> Check your server error log.')
+                   .html('<strong><?php echo esc_js(__('Request failed.', 'smart-seo-fixer')); ?></strong> <?php echo esc_js(__('Check your server error log.', 'smart-seo-fixer')); ?>')
                    .show();
         });
     });
@@ -1506,7 +1462,7 @@ jQuery(document).ready(function($) {
             return;
         }
 
-        $btn.prop('disabled', true).html('<span class="dashicons dashicons-update" style="vertical-align: text-bottom; animation: ssf-spin 1s linear infinite;"></span> <?php echo esc_js(__("Setting up...", "smart-seo-fixer")); ?>');
+        $btn.prop('disabled', true).html('<span class="ssf-spinner"></span> <?php echo esc_js(__("Setting up...", "smart-seo-fixer")); ?>');
         $log.show().html('<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;color:#1e3a5f;">' +
             '<?php echo esc_js(__("Contacting Google... this can take 20-30 seconds.", "smart-seo-fixer")); ?>' +
             '</div>');
@@ -1535,8 +1491,8 @@ jQuery(document).ready(function($) {
             var html = '<div style="padding:14px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;">';
             html += '<p style="margin:0 0 10px;font-weight:600;color:' + titleColor + ';font-size:14px;">';
             html += ok
-                ? '<span class="dashicons dashicons-yes-alt"></span> <?php echo esc_js(__("All set!", "smart-seo-fixer")); ?>'
-                : '<span class="dashicons dashicons-warning"></span> <?php echo esc_js(__("Setup did not complete.", "smart-seo-fixer")); ?>';
+                ? '<?php echo esc_js(__("All set!", "smart-seo-fixer")); ?>'
+                : '<?php echo esc_js(__("Setup did not complete.", "smart-seo-fixer")); ?>';
             html += '</p>';
 
             if (data.message) {
@@ -1547,10 +1503,8 @@ jQuery(document).ready(function($) {
                 html += '<ol style="margin:0;padding-left:22px;color:#374151;font-size:13px;">';
                 steps.forEach(function(step) {
                     var label = stepLabels[step.name] || step.name;
-                    var icon = step.success
-                        ? '<span class="dashicons dashicons-yes" style="color:#16a34a;vertical-align:text-bottom;"></span>'
-                        : '<span class="dashicons dashicons-no" style="color:#dc2626;vertical-align:text-bottom;"></span>';
-                    html += '<li style="margin-bottom:4px;">' + icon + ' <strong>' + label + '</strong>';
+                    var color = step.success ? '#16a34a' : '#dc2626';
+                    html += '<li style="margin-bottom:4px;"><strong style="color:' + color + ';">' + label + '</strong>';
                     if (step.detail) {
                         html += ' — <span style="color:#6b7280;">' + $('<div>').text(step.detail).html() + '</span>';
                     }
@@ -1601,12 +1555,12 @@ jQuery(document).ready(function($) {
             $spinner.removeClass('is-active');
             
             if (response.success) {
-                $status.html('<span class="dashicons dashicons-yes" style="color: #46b450;"></span> ' + response.data.message);
+                $status.html('<span style="color:#166534;font-weight:600;">' + response.data.message + '</span>');
             } else {
                 var msg = (response.data && response.data.message) ? response.data.message : 'Save failed. Check your server error log.';
-                $status.html('<span class="dashicons dashicons-no" style="color: #dc3232;"></span> ' + msg);
+                $status.html('<span style="color:#991b1b;font-weight:600;">' + msg + '</span>');
             }
-            
+
             setTimeout(function() {
                 $status.text('');
             }, 3000);
@@ -1614,7 +1568,7 @@ jQuery(document).ready(function($) {
             $btn.prop('disabled', false);
             $spinner.removeClass('is-active');
             var detail = errorThrown || textStatus || 'Unknown error';
-            $status.html('<span class="dashicons dashicons-no" style="color: #dc3232;"></span> Request failed: ' + detail + '. Check your server error log or browser console.');
+            $status.html('<span style="color:#991b1b;font-weight:600;">Request failed: ' + detail + '. Check your server error log or browser console.</span>');
         });
     });
 
@@ -1637,10 +1591,10 @@ jQuery(document).ready(function($) {
         if (result && result.steps && result.steps.length) {
             html += '<ol style="margin:8px 0 0 20px;">';
             result.steps.forEach(function(step) {
-                var icon  = step.success ? '<span class="dashicons dashicons-yes" style="color:#10b981;"></span>' : '<span class="dashicons dashicons-no" style="color:#dc2626;"></span>';
+                var color = step.success ? '#10b981' : '#dc2626';
                 var label = stepLabels[step.name] || step.name;
                 var det   = step.detail ? ' <small style="color:#555;">(' + $('<div>').text(step.detail).html() + ')</small>' : '';
-                html += '<li>' + icon + ' ' + label + det + '</li>';
+                html += '<li><span style="color:' + color + ';font-weight:600;">' + label + '</span>' + det + '</li>';
             });
             html += '</ol>';
         }
@@ -1654,7 +1608,7 @@ jQuery(document).ready(function($) {
         }
         var $btn = $(this);
         var $log = $('#ssf-ga-auto-setup-log');
-        $btn.prop('disabled', true).html('<span class="dashicons dashicons-update" style="vertical-align:text-bottom; animation: ssf-spin 1s linear infinite;"></span> Setting up...');
+        $btn.prop('disabled', true).html('<span class="ssf-spinner"></span> Setting up...');
         $log.hide();
 
         $.post(ssfAdmin.ajax_url, {
@@ -1672,24 +1626,24 @@ jQuery(document).ready(function($) {
                 } else {
                     ssfGaRenderLog($log, data, true);
                 }
-                $btn.prop('disabled', false).html('<span class="dashicons dashicons-plus-alt2" style="vertical-align:text-bottom;"></span> Auto-Create GA4 Property for This Site');
+                $btn.prop('disabled', false).html('Auto-Create GA4 Property for This Site');
             }
         }).fail(function() {
             ssfGaRenderLog($log, {message: 'Request failed. Please retry.'}, true);
-            $btn.prop('disabled', false).html('<span class="dashicons dashicons-plus-alt2" style="vertical-align:text-bottom;"></span> Auto-Create GA4 Property for This Site');
+            $btn.prop('disabled', false).html('Auto-Create GA4 Property for This Site');
         });
     });
 
     $('#ssf-ga-test-report').on('click', function() {
         var $btn = $(this);
         var $log = $('#ssf-ga-test-log');
-        $btn.prop('disabled', true).html('<span class="dashicons dashicons-update" style="vertical-align:text-bottom; animation: ssf-spin 1s linear infinite;"></span> Fetching...');
+        $btn.prop('disabled', true).html('<span class="ssf-spinner"></span> Fetching...');
         $log.hide();
         $.post(ssfAdmin.ajax_url, {
             action: 'ssf_ga_test_report',
             nonce:  ssfAdmin.nonce
         }).done(function(resp) {
-            $btn.prop('disabled', false).html('<span class="dashicons dashicons-chart-line" style="vertical-align:text-bottom;"></span> Test Data Fetch (Last 7 Days)');
+            $btn.prop('disabled', false).html('Test Data Fetch (Last 7 Days)');
             if (resp && resp.success) {
                 var d = resp.data;
                 $log.html(
@@ -1711,7 +1665,7 @@ jQuery(document).ready(function($) {
                 }
             }
         }).fail(function() {
-            $btn.prop('disabled', false).html('<span class="dashicons dashicons-chart-line" style="vertical-align:text-bottom;"></span> Test Data Fetch (Last 7 Days)');
+            $btn.prop('disabled', false).html('Test Data Fetch (Last 7 Days)');
             $log.html('<div style="padding:12px 14px; background:#fef2f2; border-left:4px solid #dc2626; border-radius:4px;">Request failed.</div>').show();
         });
     });
@@ -1748,7 +1702,6 @@ jQuery(document).ready(function($) {
     function ssfGaRenderApiEnableBanner($container, msg, detected) {
         var html = '<div style="padding:14px 16px; background:#fff7ed; border:1px solid #fdba74; border-left:4px solid #f97316; border-radius:6px; color:#7c2d12;">' +
             '<p style="margin:0 0 8px; font-weight:600;">' +
-                '<span class="dashicons dashicons-warning" style="color:#f97316;"></span> ' +
                 'Google API needs to be enabled' +
             '</p>' +
             '<p style="margin:0 0 10px;">' +
@@ -1757,7 +1710,6 @@ jQuery(document).ready(function($) {
             '</p>' +
             '<p style="margin:0 0 10px;">' +
                 '<a href="' + detected.url + '" target="_blank" rel="noopener" class="button button-primary">' +
-                    '<span class="dashicons dashicons-external" style="vertical-align:text-bottom;"></span> ' +
                     'Enable ' + $('<div>').text(detected.apiName).html() +
                 '</a> ' +
                 '<a href="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com" target="_blank" rel="noopener" class="button">' +
