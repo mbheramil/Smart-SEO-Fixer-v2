@@ -206,8 +206,8 @@ if (!defined('ABSPATH')) {
     align-items: center;
     gap: 40px;
     background: #fff;
+    border: 1px solid var(--ssf-gray-200);
     border-radius: var(--ssf-radius);
-    box-shadow: var(--ssf-shadow);
     padding: 28px 32px;
     margin-bottom: 20px;
 }
@@ -346,27 +346,37 @@ if (!defined('ABSPATH')) {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 14px 20px;
-    border-radius: var(--ssf-radius);
+    padding: 12px 20px;
+    border-radius: var(--ssf-radius-sm);
     font-size: 14px;
     font-weight: 600;
     text-decoration: none;
-    transition: all 0.2s;
-    color: #fff;
+    transition: background-color 0.15s var(--ssf-ease), border-color 0.15s var(--ssf-ease);
+    border: 1px solid transparent;
 }
 
-.ssf-quick-analyze { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
-.ssf-quick-analyze:hover { background: linear-gradient(135deg, #2563eb, #1e40af); color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,0.35); }
-.ssf-quick-fix { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
-.ssf-quick-fix:hover { background: linear-gradient(135deg, #7c3aed, #5b21b6); color: #fff; box-shadow: 0 4px 12px rgba(124,58,237,0.35); }
-.ssf-quick-posts { background: linear-gradient(135deg, #10b981, #047857); }
-.ssf-quick-posts:hover { background: linear-gradient(135deg, #059669, #065f46); color: #fff; box-shadow: 0 4px 12px rgba(5,150,105,0.35); }
+/* One accent color, used once — the primary action. The other two are
+   neutral/secondary, matching the rest of the button system. */
+.ssf-quick-analyze { background: var(--ssf-primary); color: #fff; }
+.ssf-quick-analyze:hover { background: var(--ssf-primary-dark); color: #fff; }
+.ssf-quick-fix,
+.ssf-quick-posts {
+    background: #fff;
+    color: var(--ssf-gray-700);
+    border-color: var(--ssf-gray-300);
+}
+.ssf-quick-fix:hover,
+.ssf-quick-posts:hover {
+    background: var(--ssf-gray-50);
+    border-color: var(--ssf-gray-400);
+    color: var(--ssf-gray-900);
+}
 
 /* ── Tools Section ───────────────────────────────── */
 .ssf-tools-section {
     background: #fff;
+    border: 1px solid var(--ssf-gray-200);
     border-radius: var(--ssf-radius);
-    box-shadow: var(--ssf-shadow);
     padding: 24px 28px;
     margin-top: 24px;
 }

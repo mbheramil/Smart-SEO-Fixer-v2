@@ -35,15 +35,16 @@
     --ssf-gray-800: #1e293b;
     --ssf-gray-900: #0f172a;
 
-    /* Shape */
-    --ssf-radius-sm: 8px;
-    --ssf-radius: 12px;
-    --ssf-radius-lg: 16px;
+    /* Shape — tighter, flatter radii (Stripe-style panels, not rounded pills) */
+    --ssf-radius-sm: 6px;
+    --ssf-radius: 8px;
+    --ssf-radius-lg: 10px;
     --ssf-radius-full: 999px;
 
-    /* Elevation — layered, soft */
-    --ssf-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
-    --ssf-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.06);
+    /* Elevation — mostly borders, not shadows. Kept only for floating
+       elements (modals, dropdowns) that genuinely sit above content. */
+    --ssf-shadow-xs: none;
+    --ssf-shadow: none;
     --ssf-shadow-lg: 0 4px 12px rgba(15, 23, 42, 0.08), 0 12px 32px rgba(15, 23, 42, 0.10);
     --ssf-shadow-xl: 0 8px 24px rgba(15, 23, 42, 0.12), 0 24px 64px rgba(15, 23, 42, 0.16);
 
@@ -1449,10 +1450,14 @@ body.ssf-pdf-exporting .ssf-report {
 }
 
 .ssf-page-title {
-    font-size: 23px;
+    font-size: 28px;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
     color: var(--ssf-gray-900);
+}
+
+.ssf-page-title--plain {
+    margin-bottom: 4px;
 }
 
 .ssf-page-title .dashicons {
@@ -1485,46 +1490,44 @@ body.ssf-pdf-exporting .ssf-report {
     letter-spacing: -0.02em;
 }
 
-/* ----- Cards -------------------------------------------------------------- */
+/* ----- Cards: flat bordered panels, no drop shadow ------------------------- */
 .ssf-wrap .ssf-card {
     border: 1px solid var(--ssf-gray-200);
-    box-shadow: var(--ssf-shadow-xs);
-    transition: box-shadow var(--ssf-speed) var(--ssf-ease),
-                border-color var(--ssf-speed) var(--ssf-ease);
+    box-shadow: none;
+    transition: border-color var(--ssf-speed) var(--ssf-ease);
 }
 
 .ssf-wrap .ssf-card:hover {
-    box-shadow: var(--ssf-shadow);
+    border-color: var(--ssf-gray-300);
 }
 
 .ssf-wrap .ssf-card-header {
     padding: 16px 20px;
-    background: linear-gradient(180deg, #fff 0%, var(--ssf-gray-50) 140%);
+    background: #fff;
+    border-bottom: 1px solid var(--ssf-gray-100);
 }
 
 .ssf-wrap .ssf-card-header h2 {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: -0.005em;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    color: var(--ssf-gray-500);
 }
 
 .ssf-wrap .ssf-card-header h2 .dashicons {
     color: var(--ssf-primary);
 }
 
-/* ----- Stat cards: lift + staggered entrance ------------------------------ */
+/* ----- Stat cards: flat, bordered, no lift on hover ------------------------ */
 .ssf-wrap .ssf-stat-card {
     border: 1px solid var(--ssf-gray-200);
-    box-shadow: var(--ssf-shadow-xs);
-    transition: transform var(--ssf-speed) var(--ssf-ease),
-                box-shadow var(--ssf-speed) var(--ssf-ease),
-                border-color var(--ssf-speed) var(--ssf-ease);
+    box-shadow: none;
+    transition: border-color var(--ssf-speed) var(--ssf-ease);
     animation: ssf-rise-in 0.4s var(--ssf-ease) both;
 }
 
 .ssf-wrap .ssf-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--ssf-shadow-lg);
     border-color: var(--ssf-gray-300);
 }
 
@@ -1536,19 +1539,21 @@ body.ssf-pdf-exporting .ssf-report {
 .ssf-wrap .ssf-stats-grid .ssf-stat-card:nth-child(6) { animation-delay: 0.25s; }
 
 .ssf-wrap .ssf-stat-icon {
-    border-radius: 12px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 6px rgba(15, 23, 42, 0.18);
+    border-radius: var(--ssf-radius-sm);
+    box-shadow: none;
 }
 
-/* ----- WordPress buttons, modernized inside plugin screens ---------------- */
+/* ----- WordPress buttons: flat fills, no gradients, no hover lift --------- */
 .ssf-wrap .button,
 .ssf-wrap .button-secondary {
     border-radius: var(--ssf-radius-sm);
     border-color: var(--ssf-gray-300);
     color: var(--ssf-gray-700);
     font-weight: 500;
-    box-shadow: var(--ssf-shadow-xs);
-    transition: all var(--ssf-speed) var(--ssf-ease);
+    box-shadow: none;
+    transition: background-color var(--ssf-speed) var(--ssf-ease),
+                border-color var(--ssf-speed) var(--ssf-ease),
+                color var(--ssf-speed) var(--ssf-ease);
 }
 
 .ssf-wrap .button:hover,
@@ -1556,43 +1561,39 @@ body.ssf-pdf-exporting .ssf-report {
     border-color: var(--ssf-gray-400);
     color: var(--ssf-gray-900);
     background: var(--ssf-gray-50);
-    transform: translateY(-1px);
-    box-shadow: var(--ssf-shadow);
+    box-shadow: none;
 }
 
 .ssf-wrap .button:active {
-    transform: translateY(0);
-    box-shadow: var(--ssf-shadow-xs);
+    background: var(--ssf-gray-100);
 }
 
 .ssf-wrap .button-primary,
 .ssf-wrap .button.button-primary {
-    background: var(--ssf-gradient-primary);
-    border: none;
+    background: var(--ssf-primary);
+    border: 1px solid var(--ssf-primary);
     color: #fff;
     font-weight: 600;
     text-shadow: none;
-    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.35), 0 3px 10px var(--ssf-primary-ring);
+    box-shadow: none;
 }
 
 .ssf-wrap .button-primary:hover,
 .ssf-wrap .button.button-primary:hover {
-    background: linear-gradient(135deg, #4f8df7 0%, #2f6ced 55%, #2153e0 100%);
+    background: var(--ssf-primary-dark);
+    border-color: var(--ssf-primary-dark);
     color: #fff;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(29, 78, 216, 0.35), 0 6px 18px var(--ssf-primary-ring);
+    box-shadow: none;
 }
 
 .ssf-wrap .button-primary:active,
 .ssf-wrap .button.button-primary:active {
     background: var(--ssf-primary-dark);
-    transform: translateY(0);
 }
 
 .ssf-wrap .button:disabled,
 .ssf-wrap .button[disabled],
 .ssf-wrap .button.disabled {
-    transform: none !important;
     box-shadow: none !important;
     opacity: 0.6;
 }
@@ -1728,8 +1729,6 @@ body.ssf-pdf-exporting .ssf-report {
 }
 
 .ssf-wrap .ssf-filter-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--ssf-shadow);
     background: var(--ssf-primary-soft);
 }
 
@@ -1744,18 +1743,8 @@ body.ssf-pdf-exporting .ssf-report {
 }
 
 .ssf-wrap .ssf-action-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--ssf-shadow-lg);
     border-color: var(--ssf-primary);
     background: #fff;
-}
-
-.ssf-wrap .ssf-action-btn .dashicons {
-    transition: transform var(--ssf-speed) var(--ssf-ease-spring);
-}
-
-.ssf-wrap .ssf-action-btn:hover .dashicons {
-    transform: scale(1.15);
 }
 
 /* ----- Pagination ------------------------------------------------------------------ */
@@ -1781,7 +1770,7 @@ body.ssf-pdf-exporting .ssf-report {
 }
 
 .ssf-wrap .ssf-progress-bar .ssf-progress-fill {
-    background: var(--ssf-gradient-primary);
+    background: var(--ssf-primary);
     border-radius: var(--ssf-radius-full);
     position: relative;
     overflow: hidden;

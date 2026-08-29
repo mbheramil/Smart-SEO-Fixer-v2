@@ -375,7 +375,7 @@ unset($available_post_types['attachment']);
                 <?php endif; ?>
                 
                 <?php if ($gsc_connected): ?>
-                    <div style="padding: 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; margin-bottom: 16px;">
+                    <div style="padding: 16px; background: #fff; border: 1px solid var(--ssf-gray-200); border-left: 3px solid var(--ssf-success); border-radius: 6px; margin-bottom: 16px;">
                         <p style="margin: 0 0 8px; font-weight: 600; color: #15803d;">
                             <?php esc_html_e('Connected to Google Search Console', 'smart-seo-fixer'); ?>
                         </p>
@@ -567,7 +567,7 @@ unset($available_post_types['attachment']);
                                 </p>
                             <?php endif; ?>
 
-                            <div style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
+                            <div style="margin-top: 12px; padding: 12px 16px; background: var(--ssf-gray-50); border: 1px solid var(--ssf-gray-200); border-radius: 6px;">
                                 <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
                                     <?php esc_html_e('Already set this up on another site?', 'smart-seo-fixer'); ?>
                                 </p>
@@ -616,7 +616,7 @@ unset($available_post_types['attachment']);
                 </p>
 
                 <?php if ($ga_connected): ?>
-                    <div style="padding: 12px 16px; background: #d1fae5; border-left: 4px solid #10b981; border-radius: 4px; margin-bottom: 16px;">
+                    <div style="padding: 12px 16px; background: #fff; border: 1px solid var(--ssf-gray-200); border-left: 3px solid var(--ssf-success); border-radius: 6px; margin-bottom: 16px;">
                         <strong style="color: #047857;"><?php esc_html_e('Connected to Google Analytics', 'smart-seo-fixer'); ?></strong>
                         <?php if (!empty($ga_measurement_id)): ?>
                             <span style="margin-left:8px; color:#047857;">
@@ -725,7 +725,7 @@ unset($available_post_types['attachment']);
                                     <?php esc_html_e('Enter a Client ID and Secret in the Google Search Console section above (Analytics reuses the same credentials), save settings, then click Connect here.', 'smart-seo-fixer'); ?>
                                 </p>
                             <?php endif; ?>
-                            <div style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
+                            <div style="margin-top: 12px; padding: 12px 16px; background: var(--ssf-gray-50); border: 1px solid var(--ssf-gray-200); border-radius: 6px;">
                                 <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
                                     <?php esc_html_e('One-time setup in Google Cloud:', 'smart-seo-fixer'); ?>
                                 </p>
@@ -1182,7 +1182,7 @@ unset($available_post_types['attachment']);
                                 <?php esc_html_e('Prevent other SEO plugins from outputting duplicate meta tags', 'smart-seo-fixer'); ?>
                             </label>
                             <?php if (!empty($conflicting_plugins)): ?>
-                            <div style="margin-top: 8px; padding: 10px 14px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px;">
+                            <div style="margin-top: 8px; padding: 10px 14px; background: #fff; border: 1px solid var(--ssf-gray-200); border-left: 3px solid var(--ssf-warning); border-radius: 6px;">
                                 <strong style="color: #856404;">
                                     <?php esc_html_e('Conflicting plugin detected:', 'smart-seo-fixer'); ?>
                                 </strong>
@@ -1194,7 +1194,7 @@ unset($available_post_types['attachment']);
                                 </p>
                             </div>
                             <?php elseif ($disable_other_seo_output): ?>
-                            <div style="margin-top: 8px; padding: 10px 14px; background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px;">
+                            <div style="margin-top: 8px; padding: 10px 14px; background: #fff; border: 1px solid var(--ssf-gray-200); border-left: 3px solid var(--ssf-info); border-radius: 6px;">
                                 <strong style="color: #0c5460;">
                                     <?php esc_html_e('Other SEO plugin output is suppressed.', 'smart-seo-fixer'); ?>
                                 </strong>
