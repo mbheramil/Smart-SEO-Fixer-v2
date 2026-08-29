@@ -195,7 +195,7 @@ jQuery(document).ready(function($) {
                 scanData = response.data;
                 displayFullResults(response.data);
             } else {
-                alert(response.data.message || '<?php echo esc_js(__('Audit failed.', 'smart-seo-fixer')); ?>');
+                SSF.alert(response.data.message || '<?php echo esc_js(__('Audit failed.', 'smart-seo-fixer')); ?>');
             }
         }).fail(function() {
             $btn.prop('disabled', false).find('strong').text('<?php echo esc_js(__('Run Indexability Audit', 'smart-seo-fixer')); ?>');
@@ -570,11 +570,11 @@ jQuery(document).ready(function($) {
             } else {
                 $btn.prop('disabled', false).html(originalHtml);
                 var errMsg = (response.data && response.data.message) ? response.data.message : '<?php echo esc_js(__('No changes made. Try again.', 'smart-seo-fixer')); ?>';
-                alert(errMsg);
+                SSF.alert(errMsg);
             }
         }).fail(function() {
             $btn.prop('disabled', false).html(originalHtml);
-            alert('<?php echo esc_js(__('Request failed. Check your connection.', 'smart-seo-fixer')); ?>');
+            SSF.alert('<?php echo esc_js(__('Request failed. Check your connection.', 'smart-seo-fixer')); ?>');
         });
     });
     
@@ -597,75 +597,73 @@ jQuery(document).ready(function($) {
         var firstError = '';
 
         if (!items.length) { return; }
-        if (!confirm('<?php echo esc_js(__('This will AI-generate missing SEO data for all listed pages. Continue?', 'smart-seo-fixer')); ?>')) {
-            return;
-        }
+        SSF.confirm('<?php echo esc_js(__('This will AI-generate missing SEO data for all listed pages. Continue?', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true);
 
-        $btn.prop('disabled', true);
-
-        // Update a single row to reflect success/failure so the user sees
-        // exactly what happened instead of the text staying "Missing...".
-        function markRow(postId, ok, msg) {
-            var $item = $group.find('.ssf-fix-btn[data-post-id="' + postId + '"]').closest('.ssf-audit-item');
-            if (!$item.length) { return; }
-            var $detail = $item.find('.ssf-audit-detail');
-            var $rowBtn = $item.find('.ssf-fix-btn');
-            if (ok) {
-                $item.addClass('ssf-audit-fixed');
-                $detail.html('<span style="color:#16a34a;">✓ ' + escHtml(msg || '<?php echo esc_js(__('Fixed', 'smart-seo-fixer')); ?>') + '</span>');
-                $rowBtn.prop('disabled', true).addClass('ssf-btn-fixed')
-                       .html('<span class="dashicons dashicons-yes-alt"></span> <?php echo esc_js(__('Fixed', 'smart-seo-fixer')); ?>');
-            } else {
-                $detail.html('<span style="color:#dc2626;">✗ ' + escHtml(msg || '<?php echo esc_js(__('Could not fix', 'smart-seo-fixer')); ?>') + '</span>');
-                $rowBtn.prop('disabled', false);
-            }
-        }
-
-        function fixNext() {
-            if (index >= items.length) {
-                var summary = okCount + ' <?php echo esc_js(__('fixed', 'smart-seo-fixer')); ?>, ' +
-                              failCount + ' <?php echo esc_js(__('failed', 'smart-seo-fixer')); ?>';
-                $btn.prop('disabled', false)
-                    .html('<span class="dashicons dashicons-yes-alt"></span> ' + summary)
-                    .toggleClass('ssf-btn-fixed', failCount === 0);
-                // Surface WHY it failed — most often this is "AI not configured"
-                // or the Bedrock model isn't enabled for the account.
-                if (failCount > 0 && firstError) {
-                    alert('<?php echo esc_js(__('Some pages could not be fixed:', 'smart-seo-fixer')); ?>\n\n' + firstError);
-                }
-                loadGSCSummary();
-                return;
-            }
-
-            $btn.html('<span class="dashicons dashicons-update ssf-spin"></span> <?php echo esc_js(__('Fixing', 'smart-seo-fixer')); ?> ' + (index + 1) + '/' + items.length + '...');
-
-            $.post(ssfAdmin.ajax_url, {
-                action: 'ssf_fix_indexability_issue',
-                nonce: ssfAdmin.nonce,
-                fix_type: fixType,
-                post_id: items[index]
-            }, function(response) {
-                if (response.success && response.data && response.data.fixed && response.data.fixed.length > 0) {
-                    okCount++;
-                    markRow(items[index], true, response.data.message);
+            // Update a single row to reflect success/failure so the user sees
+            // exactly what happened instead of the text staying "Missing...".
+            function markRow(postId, ok, msg) {
+                var $item = $group.find('.ssf-fix-btn[data-post-id="' + postId + '"]').closest('.ssf-audit-item');
+                if (!$item.length) { return; }
+                var $detail = $item.find('.ssf-audit-detail');
+                var $rowBtn = $item.find('.ssf-fix-btn');
+                if (ok) {
+                    $item.addClass('ssf-audit-fixed');
+                    $detail.html('<span style="color:#16a34a;">✓ ' + escHtml(msg || '<?php echo esc_js(__('Fixed', 'smart-seo-fixer')); ?>') + '</span>');
+                    $rowBtn.prop('disabled', true).addClass('ssf-btn-fixed')
+                           .html('<span class="dashicons dashicons-yes-alt"></span> <?php echo esc_js(__('Fixed', 'smart-seo-fixer')); ?>');
                 } else {
-                    failCount++;
-                    var em = (response.data && response.data.message) ? response.data.message : '<?php echo esc_js(__('No changes made.', 'smart-seo-fixer')); ?>';
-                    if (!firstError) { firstError = em; }
-                    markRow(items[index], false, em);
+                    $detail.html('<span style="color:#dc2626;">✗ ' + escHtml(msg || '<?php echo esc_js(__('Could not fix', 'smart-seo-fixer')); ?>') + '</span>');
+                    $rowBtn.prop('disabled', false);
                 }
-                index++;
-                fixNext();
-            }).fail(function() {
-                failCount++;
-                if (!firstError) { firstError = '<?php echo esc_js(__('Request failed — check your connection.', 'smart-seo-fixer')); ?>'; }
-                markRow(items[index], false, '<?php echo esc_js(__('Request failed', 'smart-seo-fixer')); ?>');
-                index++;
-                fixNext();
-            });
-        }
+            }
 
-        fixNext();
+            function fixNext() {
+                if (index >= items.length) {
+                    var summary = okCount + ' <?php echo esc_js(__('fixed', 'smart-seo-fixer')); ?>, ' +
+                                  failCount + ' <?php echo esc_js(__('failed', 'smart-seo-fixer')); ?>';
+                    $btn.prop('disabled', false)
+                        .html('<span class="dashicons dashicons-yes-alt"></span> ' + summary)
+                        .toggleClass('ssf-btn-fixed', failCount === 0);
+                    // Surface WHY it failed — most often this is "AI not configured"
+                    // or the Bedrock model isn't enabled for the account.
+                    if (failCount > 0 && firstError) {
+                        SSF.alert('<?php echo esc_js(__('Some pages could not be fixed:', 'smart-seo-fixer')); ?>\n\n' + firstError);
+                    }
+                    loadGSCSummary();
+                    return;
+                }
+
+                $btn.html('<span class="dashicons dashicons-update ssf-spin"></span> <?php echo esc_js(__('Fixing', 'smart-seo-fixer')); ?> ' + (index + 1) + '/' + items.length + '...');
+
+                $.post(ssfAdmin.ajax_url, {
+                    action: 'ssf_fix_indexability_issue',
+                    nonce: ssfAdmin.nonce,
+                    fix_type: fixType,
+                    post_id: items[index]
+                }, function(response) {
+                    if (response.success && response.data && response.data.fixed && response.data.fixed.length > 0) {
+                        okCount++;
+                        markRow(items[index], true, response.data.message);
+                    } else {
+                        failCount++;
+                        var em = (response.data && response.data.message) ? response.data.message : '<?php echo esc_js(__('No changes made.', 'smart-seo-fixer')); ?>';
+                        if (!firstError) { firstError = em; }
+                        markRow(items[index], false, em);
+                    }
+                    index++;
+                    fixNext();
+                }).fail(function() {
+                    failCount++;
+                    if (!firstError) { firstError = '<?php echo esc_js(__('Request failed — check your connection.', 'smart-seo-fixer')); ?>'; }
+                    markRow(items[index], false, '<?php echo esc_js(__('Request failed', 'smart-seo-fixer')); ?>');
+                    index++;
+                    fixNext();
+                });
+            }
+
+            fixNext();
+        });
     });
     
     // Show all hidden items in an issue group
@@ -714,68 +712,65 @@ jQuery(document).ready(function($) {
         var successCount = 0;
         var failCount = 0;
         
-        if (!confirm('<?php echo esc_js(__('AI will find natural internal link placements for all orphaned pages. This makes one AI call per page. Continue?', 'smart-seo-fixer')); ?>')) {
-            return;
-        }
-        
-        $btn.prop('disabled', true);
-        
-        function fixNextOrphan() {
-            if (index >= items.length) {
-                $btn.html('<span class="dashicons dashicons-yes-alt"></span> <?php echo esc_js(__('Done!', 'smart-seo-fixer')); ?> ' + successCount + '/' + items.length + ' <?php echo esc_js(__('linked', 'smart-seo-fixer')); ?>').addClass('ssf-btn-fixed');
-                loadGSCSummary();
-                return;
-            }
-            
-            var postId = items[index];
-            $btn.html('<span class="dashicons dashicons-update ssf-spin"></span> <?php echo esc_js(__('Linking', 'smart-seo-fixer')); ?> ' + (index + 1) + '/' + items.length + '...');
-            
-            $.post(ssfAdmin.ajax_url, {
-                action: 'ssf_fix_orphaned_page',
-                nonce: ssfAdmin.nonce,
-                post_id: postId
-            }, function(response) {
-                var $item = $('#orphan-item-' + postId);
-                if (response.success && response.data.linked) {
-                    successCount++;
-                    $item.addClass('ssf-audit-fixed');
-                    $item.find('.ssf-fix-orphan-btn').html('<span class="dashicons dashicons-yes-alt"></span> <?php echo esc_js(__('Linked!', 'smart-seo-fixer')); ?>').addClass('ssf-btn-fixed').prop('disabled', true);
-                    $('#orphan-status-' + postId).text(response.data.message).addClass('ssf-orphan-success');
-                } else {
-                    failCount++;
-                    var msg = (response.data && response.data.message) ? response.data.message : '';
-                    $('#orphan-status-' + postId).text(msg).addClass('ssf-orphan-error');
+        SSF.confirm('<?php echo esc_js(__('AI will find natural internal link placements for all orphaned pages. This makes one AI call per page. Continue?', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true);
+
+            function fixNextOrphan() {
+                if (index >= items.length) {
+                    $btn.html('<span class="dashicons dashicons-yes-alt"></span> <?php echo esc_js(__('Done!', 'smart-seo-fixer')); ?> ' + successCount + '/' + items.length + ' <?php echo esc_js(__('linked', 'smart-seo-fixer')); ?>').addClass('ssf-btn-fixed');
+                    loadGSCSummary();
+                    return;
                 }
-                index++;
-                fixNextOrphan();
-            }).fail(function() {
-                failCount++;
-                index++;
-                fixNextOrphan();
-            });
-        }
-        
-        fixNextOrphan();
+
+                var postId = items[index];
+                $btn.html('<span class="dashicons dashicons-update ssf-spin"></span> <?php echo esc_js(__('Linking', 'smart-seo-fixer')); ?> ' + (index + 1) + '/' + items.length + '...');
+
+                $.post(ssfAdmin.ajax_url, {
+                    action: 'ssf_fix_orphaned_page',
+                    nonce: ssfAdmin.nonce,
+                    post_id: postId
+                }, function(response) {
+                    var $item = $('#orphan-item-' + postId);
+                    if (response.success && response.data.linked) {
+                        successCount++;
+                        $item.addClass('ssf-audit-fixed');
+                        $item.find('.ssf-fix-orphan-btn').html('<span class="dashicons dashicons-yes-alt"></span> <?php echo esc_js(__('Linked!', 'smart-seo-fixer')); ?>').addClass('ssf-btn-fixed').prop('disabled', true);
+                        $('#orphan-status-' + postId).text(response.data.message).addClass('ssf-orphan-success');
+                    } else {
+                        failCount++;
+                        var msg = (response.data && response.data.message) ? response.data.message : '';
+                        $('#orphan-status-' + postId).text(msg).addClass('ssf-orphan-error');
+                    }
+                    index++;
+                    fixNextOrphan();
+                }).fail(function() {
+                    failCount++;
+                    index++;
+                    fixNextOrphan();
+                });
+            }
+
+            fixNextOrphan();
+        });
     });
     
     // Fix all issues (legacy + new)
     $('#fix-all-issues-btn').on('click', function() {
         var $btn = $(this);
-        if (!confirm('<?php echo esc_js(__('This will fix all auto-fixable issues (redirect chains). For AI-generated content, use the individual buttons. Continue?', 'smart-seo-fixer')); ?>')) {
-            return;
-        }
-        $btn.prop('disabled', true).find('strong').text('<?php echo esc_js(__('Fixing...', 'smart-seo-fixer')); ?>');
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_fix_url_issues',
-            nonce: ssfAdmin.nonce,
-            issue_type: 'all'
-        }, function(response) {
-            $btn.prop('disabled', false).find('strong').text('<?php echo esc_js(__('Fix All Auto-Fixable', 'smart-seo-fixer')); ?>');
-            if (response.success) {
-                alert('<?php echo esc_js(__('Auto-fixable issues resolved! Re-scanning...', 'smart-seo-fixer')); ?>');
-                $('#scan-url-issues-btn').click();
-                loadGSCSummary();
-            }
+        SSF.confirm('<?php echo esc_js(__('This will fix all auto-fixable issues (redirect chains). For AI-generated content, use the individual buttons. Continue?', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true).find('strong').text('<?php echo esc_js(__('Fixing...', 'smart-seo-fixer')); ?>');
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_fix_url_issues',
+                nonce: ssfAdmin.nonce,
+                issue_type: 'all'
+            }, function(response) {
+                $btn.prop('disabled', false).find('strong').text('<?php echo esc_js(__('Fix All Auto-Fixable', 'smart-seo-fixer')); ?>');
+                if (response.success) {
+                    SSF.alert('<?php echo esc_js(__('Auto-fixable issues resolved! Re-scanning...', 'smart-seo-fixer')); ?>');
+                    $('#scan-url-issues-btn').click();
+                    loadGSCSummary();
+                }
+            });
         });
     });
 });

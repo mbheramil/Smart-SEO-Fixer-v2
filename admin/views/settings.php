@@ -1436,20 +1436,21 @@ jQuery(document).ready(function($) {
 
     // GSC Disconnect
     $('#ssf-gsc-disconnect').on('click', function() {
-        if (!confirm('<?php esc_html_e('Disconnect Google Search Console?', 'smart-seo-fixer'); ?>')) return;
         var $btn = $(this);
-        $btn.prop('disabled', true).text('<?php esc_html_e('Disconnecting...', 'smart-seo-fixer'); ?>');
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_gsc_disconnect',
-            nonce: ssfAdmin.nonce
-        }, function(response) {
-            if (response.success) {
-                location.reload();
-            } else {
-                alert(response.data.message || 'Error');
-                $btn.prop('disabled', false).text('<?php esc_html_e('Disconnect', 'smart-seo-fixer'); ?>');
-            }
-        });
+        SSF.confirm('<?php echo esc_js(__('Disconnect Google Search Console?', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true).text('<?php esc_html_e('Disconnecting...', 'smart-seo-fixer'); ?>');
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_gsc_disconnect',
+                nonce: ssfAdmin.nonce
+            }, function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    SSF.alert(response.data.message || 'Error');
+                    $btn.prop('disabled', false).text('<?php esc_html_e('Disconnect', 'smart-seo-fixer'); ?>');
+                }
+            });
+        }, { danger: true });
     });
 
     // GSC Auto-Setup — one-click create + verify + submit sitemap
@@ -1458,79 +1459,77 @@ jQuery(document).ready(function($) {
         var $log = $('#ssf-gsc-auto-setup-log');
         var originalHtml = $btn.html();
 
-        if (!confirm('<?php echo esc_js(__("This will add this site to Google Search Console, verify ownership with a meta tag, and submit your sitemap. Continue?", "smart-seo-fixer")); ?>')) {
-            return;
-        }
-
-        $btn.prop('disabled', true).html('<span class="ssf-spinner"></span> <?php echo esc_js(__("Setting up...", "smart-seo-fixer")); ?>');
-        $log.show().html('<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;color:#1e3a5f;">' +
-            '<?php echo esc_js(__("Contacting Google... this can take 20-30 seconds.", "smart-seo-fixer")); ?>' +
-            '</div>');
-
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_gsc_auto_setup',
-            nonce: ssfAdmin.nonce
-        }, function(response) {
-            var data = (response && response.data) ? response.data : {};
-            var steps = data.steps || [];
-            var ok = !!(response && response.success);
-
-            var stepLabels = {
-                precheck_domain:  '<?php echo esc_js(__("Domain reachable", "smart-seo-fixer")); ?>',
-                request_token:    '<?php echo esc_js(__("Request verification token", "smart-seo-fixer")); ?>',
-                homepage_check:   '<?php echo esc_js(__("Meta tag live on homepage", "smart-seo-fixer")); ?>',
-                verify:           '<?php echo esc_js(__("Google verifies ownership", "smart-seo-fixer")); ?>',
-                add_to_gsc:       '<?php echo esc_js(__("Add property to Search Console", "smart-seo-fixer")); ?>',
-                submit_sitemap:   '<?php echo esc_js(__("Submit sitemap", "smart-seo-fixer")); ?>'
-            };
-
-            var bgColor = ok ? '#f0fdf4' : '#fef2f2';
-            var borderColor = ok ? '#bbf7d0' : '#fecaca';
-            var titleColor = ok ? '#15803d' : '#b91c1c';
-
-            var html = '<div style="padding:14px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;">';
-            html += '<p style="margin:0 0 10px;font-weight:600;color:' + titleColor + ';font-size:14px;">';
-            html += ok
-                ? '<?php echo esc_js(__("All set!", "smart-seo-fixer")); ?>'
-                : '<?php echo esc_js(__("Setup did not complete.", "smart-seo-fixer")); ?>';
-            html += '</p>';
-
-            if (data.message) {
-                html += '<p style="margin:0 0 10px;color:#374151;">' + $('<div>').text(data.message).html() + '</p>';
-            }
-
-            if (steps.length) {
-                html += '<ol style="margin:0;padding-left:22px;color:#374151;font-size:13px;">';
-                steps.forEach(function(step) {
-                    var label = stepLabels[step.name] || step.name;
-                    var color = step.success ? '#16a34a' : '#dc2626';
-                    html += '<li style="margin-bottom:4px;"><strong style="color:' + color + ';">' + label + '</strong>';
-                    if (step.detail) {
-                        html += ' — <span style="color:#6b7280;">' + $('<div>').text(step.detail).html() + '</span>';
-                    }
-                    html += '</li>';
-                });
-                html += '</ol>';
-            }
-
-            if (ok) {
-                html += '<p style="margin:12px 0 0;color:#166534;font-size:13px;"><?php echo esc_js(__("Reloading in 3 seconds to refresh the site list…", "smart-seo-fixer")); ?></p>';
-            }
-
-            html += '</div>';
-            $log.html(html);
-
-            $btn.prop('disabled', false).html(originalHtml);
-
-            if (ok) {
-                setTimeout(function() { location.reload(); }, 3000);
-            }
-        }).fail(function(jqXHR, textStatus, errorThrown) {
-            $log.html('<div style="padding:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#b91c1c;">' +
-                '<?php echo esc_js(__("Request failed:", "smart-seo-fixer")); ?> ' +
-                (errorThrown || textStatus || 'Unknown error') +
+        SSF.confirm('<?php echo esc_js(__("This will add this site to Google Search Console, verify ownership with a meta tag, and submit your sitemap. Continue?", "smart-seo-fixer")); ?>', function() {
+            $btn.prop('disabled', true).html('<span class="ssf-spinner"></span> <?php echo esc_js(__("Setting up...", "smart-seo-fixer")); ?>');
+            $log.show().html('<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;color:#1e3a5f;">' +
+                '<?php echo esc_js(__("Contacting Google... this can take 20-30 seconds.", "smart-seo-fixer")); ?>' +
                 '</div>');
-            $btn.prop('disabled', false).html(originalHtml);
+
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_gsc_auto_setup',
+                nonce: ssfAdmin.nonce
+            }, function(response) {
+                var data = (response && response.data) ? response.data : {};
+                var steps = data.steps || [];
+                var ok = !!(response && response.success);
+
+                var stepLabels = {
+                    precheck_domain:  '<?php echo esc_js(__("Domain reachable", "smart-seo-fixer")); ?>',
+                    request_token:    '<?php echo esc_js(__("Request verification token", "smart-seo-fixer")); ?>',
+                    homepage_check:   '<?php echo esc_js(__("Meta tag live on homepage", "smart-seo-fixer")); ?>',
+                    verify:           '<?php echo esc_js(__("Google verifies ownership", "smart-seo-fixer")); ?>',
+                    add_to_gsc:       '<?php echo esc_js(__("Add property to Search Console", "smart-seo-fixer")); ?>',
+                    submit_sitemap:   '<?php echo esc_js(__("Submit sitemap", "smart-seo-fixer")); ?>'
+                };
+
+                var bgColor = ok ? '#f0fdf4' : '#fef2f2';
+                var borderColor = ok ? '#bbf7d0' : '#fecaca';
+                var titleColor = ok ? '#15803d' : '#b91c1c';
+
+                var html = '<div style="padding:14px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;">';
+                html += '<p style="margin:0 0 10px;font-weight:600;color:' + titleColor + ';font-size:14px;">';
+                html += ok
+                    ? '<?php echo esc_js(__("All set!", "smart-seo-fixer")); ?>'
+                    : '<?php echo esc_js(__("Setup did not complete.", "smart-seo-fixer")); ?>';
+                html += '</p>';
+
+                if (data.message) {
+                    html += '<p style="margin:0 0 10px;color:#374151;">' + $('<div>').text(data.message).html() + '</p>';
+                }
+
+                if (steps.length) {
+                    html += '<ol style="margin:0;padding-left:22px;color:#374151;font-size:13px;">';
+                    steps.forEach(function(step) {
+                        var label = stepLabels[step.name] || step.name;
+                        var color = step.success ? '#16a34a' : '#dc2626';
+                        html += '<li style="margin-bottom:4px;"><strong style="color:' + color + ';">' + label + '</strong>';
+                        if (step.detail) {
+                            html += ' — <span style="color:#6b7280;">' + $('<div>').text(step.detail).html() + '</span>';
+                        }
+                        html += '</li>';
+                    });
+                    html += '</ol>';
+                }
+
+                if (ok) {
+                    html += '<p style="margin:12px 0 0;color:#166534;font-size:13px;"><?php echo esc_js(__("Reloading in 3 seconds to refresh the site list…", "smart-seo-fixer")); ?></p>';
+                }
+
+                html += '</div>';
+                $log.html(html);
+
+                $btn.prop('disabled', false).html(originalHtml);
+
+                if (ok) {
+                    setTimeout(function() { location.reload(); }, 3000);
+                }
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                $log.html('<div style="padding:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#b91c1c;">' +
+                    '<?php echo esc_js(__("Request failed:", "smart-seo-fixer")); ?> ' +
+                    (errorThrown || textStatus || 'Unknown error') +
+                    '</div>');
+                $btn.prop('disabled', false).html(originalHtml);
+            });
         });
     });
     
@@ -1603,34 +1602,33 @@ jQuery(document).ready(function($) {
     }
 
     $('#ssf-ga-auto-setup').on('click', function() {
-        if (!confirm('Create a new GA4 property for this site? A new property will be added under your first Analytics account and the tracking code will be installed automatically.')) {
-            return;
-        }
         var $btn = $(this);
-        var $log = $('#ssf-ga-auto-setup-log');
-        $btn.prop('disabled', true).html('<span class="ssf-spinner"></span> Setting up...');
-        $log.hide();
+        SSF.confirm('Create a new GA4 property for this site? A new property will be added under your first Analytics account and the tracking code will be installed automatically.', function() {
+            var $log = $('#ssf-ga-auto-setup-log');
+            $btn.prop('disabled', true).html('<span class="ssf-spinner"></span> Setting up...');
+            $log.hide();
 
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_ga_auto_setup',
-            nonce:  ssfAdmin.nonce
-        }).done(function(resp) {
-            if (resp && resp.success) {
-                ssfGaRenderLog($log, resp.data, false);
-                setTimeout(function() { window.location.reload(); }, 2500);
-            } else {
-                var data = resp && resp.data ? resp.data : {message: 'Setup failed.'};
-                var detected = ssfGaDetectApiEnableError(data.message || '');
-                if (detected) {
-                    ssfGaRenderApiEnableBanner($log, data.message, detected);
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_ga_auto_setup',
+                nonce:  ssfAdmin.nonce
+            }).done(function(resp) {
+                if (resp && resp.success) {
+                    ssfGaRenderLog($log, resp.data, false);
+                    setTimeout(function() { window.location.reload(); }, 2500);
                 } else {
-                    ssfGaRenderLog($log, data, true);
+                    var data = resp && resp.data ? resp.data : {message: 'Setup failed.'};
+                    var detected = ssfGaDetectApiEnableError(data.message || '');
+                    if (detected) {
+                        ssfGaRenderApiEnableBanner($log, data.message, detected);
+                    } else {
+                        ssfGaRenderLog($log, data, true);
+                    }
+                    $btn.prop('disabled', false).html('Auto-Create GA4 Property for This Site');
                 }
+            }).fail(function() {
+                ssfGaRenderLog($log, {message: 'Request failed. Please retry.'}, true);
                 $btn.prop('disabled', false).html('Auto-Create GA4 Property for This Site');
-            }
-        }).fail(function() {
-            ssfGaRenderLog($log, {message: 'Request failed. Please retry.'}, true);
-            $btn.prop('disabled', false).html('Auto-Create GA4 Property for This Site');
+            });
         });
     });
 
@@ -1671,15 +1669,14 @@ jQuery(document).ready(function($) {
     });
 
     $('#ssf-ga-disconnect').on('click', function() {
-        if (!confirm('Disconnect Google Analytics? Your measurement ID and property link will be cleared.')) {
-            return;
-        }
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_ga_disconnect',
-            nonce:  ssfAdmin.nonce
-        }).always(function() {
-            window.location.reload();
-        });
+        SSF.confirm('Disconnect Google Analytics? Your measurement ID and property link will be cleared.', function() {
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_ga_disconnect',
+                nonce:  ssfAdmin.nonce
+            }).always(function() {
+                window.location.reload();
+            });
+        }, { danger: true });
     });
 
     // Existing-property picker
@@ -1788,7 +1785,7 @@ jQuery(document).ready(function($) {
         var $opt = $('#ssf_ga_property_select option:selected');
         var property = $opt.val();
         if (!property) {
-            alert('Please select a property first.');
+            SSF.alert('Please select a property first.');
             return;
         }
         var account = $opt.attr('data-account') || '';
@@ -1808,15 +1805,15 @@ jQuery(document).ready(function($) {
         $btn.prop('disabled', true).text('Saving…');
         $.post(ssfAdmin.ajax_url, payload).done(function(resp) {
             if (resp && resp.success) {
-                alert(resp.data.message || 'Saved.');
+                SSF.alert(resp.data.message || 'Saved.');
                 window.location.reload();
             } else {
                 $btn.prop('disabled', false).text('Save Selection');
-                alert((resp && resp.data && resp.data.message) ? resp.data.message : 'Save failed.');
+                SSF.alert((resp && resp.data && resp.data.message) ? resp.data.message : 'Save failed.');
             }
         }).fail(function() {
             $btn.prop('disabled', false).text('Save Selection');
-            alert('Request failed.');
+            SSF.alert('Request failed.');
         });
     });
 
@@ -1828,12 +1825,12 @@ jQuery(document).ready(function($) {
             measurement_id: mid
         }).done(function(resp) {
             if (resp && resp.success) {
-                alert(resp.data.message || 'Saved.');
+                SSF.alert(resp.data.message || 'Saved.');
                 window.location.reload();
             } else {
-                alert((resp && resp.data && resp.data.message) ? resp.data.message : 'Save failed.');
+                SSF.alert((resp && resp.data && resp.data.message) ? resp.data.message : 'Save failed.');
             }
-        }).fail(function() { alert('Request failed.'); });
+        }).fail(function() { SSF.alert('Request failed.'); });
     });
 
     $('#ssf_ga_auto_tag_toggle').on('change', function() {
@@ -1844,17 +1841,22 @@ jQuery(document).ready(function($) {
         // Use a dedicated setter via update_option through ssf_save_settings is
         // overkill; instead re-post the current MID (endpoint updates AUTO_TAG_OPTION too).
         var mid = $.trim($('#ssf_ga_manual_mid').val());
+        var $checkbox = $(this);
         if (!this.checked) {
             // Clear MID to disable injection without wiping property link.
-            if (!confirm('Disable tracking code injection? The measurement ID will be cleared so gtag.js is no longer output. You can paste it back anytime.')) {
-                $(this).prop('checked', true);
-                return;
-            }
-            $.post(ssfAdmin.ajax_url, {
-                action: 'ssf_ga_save_measurement_id',
-                nonce:  ssfAdmin.nonce,
-                measurement_id: ''
-            }).always(function() { window.location.reload(); });
+            // The checkbox is already visually unchecked (the browser toggles
+            // it before 'change' fires) — onCancel puts it back if the admin
+            // backs out, from any dismissal path (Cancel, backdrop, Escape).
+            SSF.confirm('Disable tracking code injection? The measurement ID will be cleared so gtag.js is no longer output. You can paste it back anytime.', function() {
+                $.post(ssfAdmin.ajax_url, {
+                    action: 'ssf_ga_save_measurement_id',
+                    nonce:  ssfAdmin.nonce,
+                    measurement_id: ''
+                }).always(function() { window.location.reload(); });
+            }, {
+                danger: true,
+                onCancel: function() { $checkbox.prop('checked', true); }
+            });
         } else if (mid) {
             $.post(ssfAdmin.ajax_url, {
                 action: 'ssf_ga_save_measurement_id',

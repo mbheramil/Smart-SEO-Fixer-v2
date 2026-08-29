@@ -875,7 +875,7 @@ jQuery(document).ready(function($) {
         var name = $('#loc-name').val().trim();
         if (!name) {
             $('#loc-name').focus();
-            alert('<?php echo esc_js(__('Location name is required.', 'smart-seo-fixer')); ?>');
+            SSF.alert('<?php echo esc_js(__('Location name is required.', 'smart-seo-fixer')); ?>');
             return;
         }
         
@@ -906,42 +906,41 @@ jQuery(document).ready(function($) {
                 updateCount();
                 closeModal();
             } else {
-                alert(response.data ? response.data.message : '<?php echo esc_js(__('Error saving location.', 'smart-seo-fixer')); ?>');
+                SSF.alert(response.data ? response.data.message : '<?php echo esc_js(__('Error saving location.', 'smart-seo-fixer')); ?>');
             }
         }).fail(function() {
             $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved" style="line-height:1.4;"></span> <?php echo esc_js(__('Save Location', 'smart-seo-fixer')); ?>');
-            alert('<?php echo esc_js(__('Network error. Please try again.', 'smart-seo-fixer')); ?>');
+            SSF.alert('<?php echo esc_js(__('Network error. Please try again.', 'smart-seo-fixer')); ?>');
         });
     });
     
     // Delete location
     $(document).on('click', '.delete-location-btn', function() {
-        if (!confirm('<?php echo esc_js(__('Delete this location? This cannot be undone.', 'smart-seo-fixer')); ?>')) {
-            return;
-        }
-        
         var $item = $(this).closest('.ssf-location-item');
         var locationId = $item.data('id');
         var $btn = $(this);
-        $btn.prop('disabled', true);
-        
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_delete_location',
-            nonce: ssfAdmin.nonce,
-            location_id: locationId
-        }, function(response) {
-            if (response.success) {
-                $item.slideUp(200, function() {
-                    $(this).remove();
-                    updateCount();
-                });
-            } else {
+
+        SSF.confirm('<?php echo esc_js(__('Delete this location? This cannot be undone.', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true);
+
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_delete_location',
+                nonce: ssfAdmin.nonce,
+                location_id: locationId
+            }, function(response) {
+                if (response.success) {
+                    $item.slideUp(200, function() {
+                        $(this).remove();
+                        updateCount();
+                    });
+                } else {
+                    $btn.prop('disabled', false);
+                    SSF.alert(response.data ? response.data.message : 'Error');
+                }
+            }).fail(function() {
                 $btn.prop('disabled', false);
-                alert(response.data ? response.data.message : 'Error');
-            }
-        }).fail(function() {
-            $btn.prop('disabled', false);
-        });
+            });
+        }, { danger: true });
     });
     
     // Show/hide practice areas based on business type

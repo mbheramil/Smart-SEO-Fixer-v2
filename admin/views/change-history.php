@@ -334,25 +334,23 @@ jQuery(document).ready(function($) {
         var $btn = $(this);
         var historyId = $btn.data('id');
         
-        if (!confirm('<?php esc_html_e('Are you sure you want to revert this change? The original value will be restored.', 'smart-seo-fixer'); ?>')) {
-            return;
-        }
-        
-        $btn.prop('disabled', true).html('<span class="spinner is-active" style="float:none; margin:0;"></span>');
-        
-        $.post(ajaxurl, {
-            action: 'ssf_undo_change',
-            nonce: ssfAdmin.nonce,
-            history_id: historyId
-        }, function(response) {
-            if (response.success) {
-                $btn.replaceWith('<span class="ssf-badge ssf-badge-reverted"><?php esc_html_e('Reverted', 'smart-seo-fixer'); ?></span>');
-            } else {
-                alert(response.data.message || '<?php esc_html_e('Failed to undo.', 'smart-seo-fixer'); ?>');
-                $btn.prop('disabled', false).html('<span class="dashicons dashicons-undo" style="font-size: 14px; vertical-align: text-bottom;"></span> <?php esc_html_e('Undo', 'smart-seo-fixer'); ?>');
-            }
-        }).fail(function() {
-            $btn.prop('disabled', false);
+        SSF.confirm('<?php echo esc_js(__('Are you sure you want to revert this change? The original value will be restored.', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true).html('<span class="spinner is-active" style="float:none; margin:0;"></span>');
+
+            $.post(ajaxurl, {
+                action: 'ssf_undo_change',
+                nonce: ssfAdmin.nonce,
+                history_id: historyId
+            }, function(response) {
+                if (response.success) {
+                    $btn.replaceWith('<span class="ssf-badge ssf-badge-reverted"><?php esc_html_e('Reverted', 'smart-seo-fixer'); ?></span>');
+                } else {
+                    SSF.alert(response.data.message || '<?php esc_html_e('Failed to undo.', 'smart-seo-fixer'); ?>');
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-undo" style="font-size: 14px; vertical-align: text-bottom;"></span> <?php esc_html_e('Undo', 'smart-seo-fixer'); ?>');
+                }
+            }).fail(function() {
+                $btn.prop('disabled', false);
+            });
         });
     });
     

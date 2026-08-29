@@ -213,12 +213,12 @@ jQuery(document).ready(function($) {
         var $btn = $(this);
         var from = $('#ssf-redir-from').val().trim();
         var to = $('#ssf-redir-to').val().trim();
-        if (!from || !to) { alert('<?php echo esc_js(__('Both From and To URLs are required.', 'smart-seo-fixer')); ?>'); return; }
+        if (!from || !to) { SSF.alert('<?php echo esc_js(__('Both From and To URLs are required.', 'smart-seo-fixer')); ?>'); return; }
         $btn.prop('disabled',true);
         $.post(ssfAdmin.ajax_url, {action:'ssf_add_redirect',nonce:ssfAdmin.nonce,from:from,to:to,redirect_type:$('#ssf-redir-type').val(),note:$('#ssf-redir-note').val()}, function(r) {
             $btn.prop('disabled',false);
             if (r.success) { $('#ssf-redir-from,#ssf-redir-to,#ssf-redir-note').val(''); loadRedirects(); }
-            else { alert(r.data.message); }
+            else { SSF.alert(r.data.message); }
         }).fail(function() { $btn.prop('disabled',false); });
     });
     
@@ -231,11 +231,12 @@ jQuery(document).ready(function($) {
     
     // Delete redirect
     $(document).on('click', '.ssf-del-redir', function() {
-        if (!confirm('<?php echo esc_js(__('Delete this redirect?', 'smart-seo-fixer')); ?>')) return;
         var $btn = $(this);
-        $.post(ssfAdmin.ajax_url, {action:'ssf_delete_redirect',nonce:ssfAdmin.nonce,redirect_id:$btn.data('id')}, function(r) {
-            if (r.success) { $btn.closest('tr').fadeOut(200, function() { $(this).remove(); }); }
-        });
+        SSF.confirm('<?php echo esc_js(__('Delete this redirect?', 'smart-seo-fixer')); ?>', function() {
+            $.post(ssfAdmin.ajax_url, {action:'ssf_delete_redirect',nonce:ssfAdmin.nonce,redirect_id:$btn.data('id')}, function(r) {
+                if (r.success) { $btn.closest('tr').fadeOut(200, function() { $(this).remove(); }); }
+            });
+        }, { danger: true });
     });
     
     // 404 → Redirect
@@ -248,8 +249,9 @@ jQuery(document).ready(function($) {
     
     // Clear 404 log
     $('#ssf-clear-404').on('click', function() {
-        if (!confirm('<?php echo esc_js(__('Clear all 404 log entries?', 'smart-seo-fixer')); ?>')) return;
-        $.post(ssfAdmin.ajax_url, {action:'ssf_clear_404_log',nonce:ssfAdmin.nonce}, function() { load404Log(); });
+        SSF.confirm('<?php echo esc_js(__('Clear all 404 log entries?', 'smart-seo-fixer')); ?>', function() {
+            $.post(ssfAdmin.ajax_url, {action:'ssf_clear_404_log',nonce:ssfAdmin.nonce}, function() { load404Log(); });
+        }, { danger: true });
     });
     
     // Select all 404 checkboxes — selects ALL items, not just visible page
@@ -280,7 +282,7 @@ jQuery(document).ready(function($) {
     // Bulk redirect confirm — inline sequential processing with progress
     $('#ssf-bulk-redirect-confirm').on('click', function() {
         var redirectTo = $('#ssf-bulk-redirect-to').val().trim();
-        if (!redirectTo) { alert('<?php echo esc_js(__('Enter a redirect URL.', 'smart-seo-fixer')); ?>'); return; }
+        if (!redirectTo) { SSF.alert('<?php echo esc_js(__('Enter a redirect URL.', 'smart-seo-fixer')); ?>'); return; }
         
         var urls = [];
         if (selectAll404Mode) {

@@ -150,15 +150,15 @@ jQuery(document).ready(function($) {
     var recommendedContent = <?php echo wp_json_encode($recommended); ?>;
     
     $('#ssf-robots-load-default').on('click', function() {
-        if (confirm('<?php echo esc_js(__('Replace editor content with WordPress default?', 'smart-seo-fixer')); ?>')) {
+        SSF.confirm('<?php echo esc_js(__('Replace editor content with WordPress default?', 'smart-seo-fixer')); ?>', function() {
             $('#ssf-robots-content').val(defaultContent);
-        }
+        });
     });
-    
+
     $('#ssf-robots-load-recommended').on('click', function() {
-        if (confirm('<?php echo esc_js(__('Replace editor content with optimized recommended template?', 'smart-seo-fixer')); ?>')) {
+        SSF.confirm('<?php echo esc_js(__('Replace editor content with optimized recommended template?', 'smart-seo-fixer')); ?>', function() {
             $('#ssf-robots-content').val(recommendedContent);
-        }
+        });
     });
     
     $('#ssf-robots-save').on('click', function() {
@@ -173,9 +173,9 @@ jQuery(document).ready(function($) {
         }, function(response) {
             $btn.prop('disabled', false).text('<?php echo esc_js(__('Save robots.txt', 'smart-seo-fixer')); ?>');
             if (response.success) {
-                alert(response.data.message);
+                SSF.alert(response.data.message);
             } else {
-                alert(response.data?.message || 'Error saving');
+                SSF.alert(response.data?.message || 'Error saving');
             }
         });
     });

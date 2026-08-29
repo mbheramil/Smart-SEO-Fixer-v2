@@ -325,19 +325,17 @@ jQuery(document).ready(function($) {
     
     // Clear all logs
     $('#ssf-log-clear').on('click', function() {
-        if (!confirm('<?php esc_html_e('Are you sure you want to clear all log entries? This cannot be undone.', 'smart-seo-fixer'); ?>')) {
-            return;
-        }
-        
-        $.post(ajaxurl, {
-            action: 'ssf_clear_logs',
-            nonce: ssfAdmin.nonce
-        }, function(response) {
-            if (response.success) {
-                loadLogs(1);
-                $('#ssf-count-error, #ssf-count-warning, #ssf-count-info, #ssf-count-debug').text('0');
-            }
-        });
+        SSF.confirm('<?php echo esc_js(__('Are you sure you want to clear all log entries? This cannot be undone.', 'smart-seo-fixer')); ?>', function() {
+            $.post(ajaxurl, {
+                action: 'ssf_clear_logs',
+                nonce: ssfAdmin.nonce
+            }, function(response) {
+                if (response.success) {
+                    loadLogs(1);
+                    $('#ssf-count-error, #ssf-count-warning, #ssf-count-info, #ssf-count-debug').text('0');
+                }
+            });
+        }, { danger: true });
     });
     
     // Initial load

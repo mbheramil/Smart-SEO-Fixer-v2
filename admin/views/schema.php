@@ -370,35 +370,35 @@ jQuery(document).ready(function($) {
         var $btn = $(this);
         var postId = $btn.data('id');
         
-        if (!confirm('<?php echo esc_js(__('Remove custom schema from this post?', 'smart-seo-fixer')); ?>')) return;
-        
-        $btn.prop('disabled', true).find('.dashicons').removeClass('dashicons-trash').addClass('dashicons-update spin');
-        
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_delete_single_schema',
-            nonce: ssfAdmin.nonce,
-            post_id: postId
-        }, function(response) {
-            if (response.success) {
-                $('tr[data-post-id="' + postId + '"]').fadeOut(300, function() { $(this).remove(); });
-                showToast(response.data.message, 'success');
-                // Update count
-                var count = $('#ssf-schema-tbody tr:visible').length / 2 - 1; // minus the one being removed
-                if (count <= 0) {
-                    $('#ssf-schema-table').hide();
-                    $('#ssf-schema-empty').show();
-                    $('#ssf-schema-count').hide();
+        SSF.confirm('<?php echo esc_js(__('Remove custom schema from this post?', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true).find('.dashicons').removeClass('dashicons-trash').addClass('dashicons-update spin');
+
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_delete_single_schema',
+                nonce: ssfAdmin.nonce,
+                post_id: postId
+            }, function(response) {
+                if (response.success) {
+                    $('tr[data-post-id="' + postId + '"]').fadeOut(300, function() { $(this).remove(); });
+                    showToast(response.data.message, 'success');
+                    // Update count
+                    var count = $('#ssf-schema-tbody tr:visible').length / 2 - 1; // minus the one being removed
+                    if (count <= 0) {
+                        $('#ssf-schema-table').hide();
+                        $('#ssf-schema-empty').show();
+                        $('#ssf-schema-count').hide();
+                    } else {
+                        $('#ssf-schema-count').text(count);
+                    }
                 } else {
-                    $('#ssf-schema-count').text(count);
+                    showToast(response.data.message, 'error');
+                    $btn.prop('disabled', false).find('.dashicons').removeClass('dashicons-update spin').addClass('dashicons-trash');
                 }
-            } else {
-                showToast(response.data.message, 'error');
+            }).fail(function() {
+                showToast('<?php echo esc_js(__('Request failed. Please try again.', 'smart-seo-fixer')); ?>', 'error');
                 $btn.prop('disabled', false).find('.dashicons').removeClass('dashicons-update spin').addClass('dashicons-trash');
-            }
-        }).fail(function() {
-            showToast('<?php echo esc_js(__('Request failed. Please try again.', 'smart-seo-fixer')); ?>', 'error');
-            $btn.prop('disabled', false).find('.dashicons').removeClass('dashicons-update spin').addClass('dashicons-trash');
-        });
+            });
+        }, { danger: true });
     });
     
     // ========================================
@@ -459,91 +459,91 @@ jQuery(document).ready(function($) {
     $('#ssf-regen-all-schemas').on('click', function() {
         var $btn = $(this);
         
-        if (!confirm('<?php echo esc_js(__('This will re-run AI schema generation for ALL posts with custom schemas. This uses your AI API credits. Continue?', 'smart-seo-fixer')); ?>')) return;
-        
-        var $progress = $('#ssf-bulk-progress');
-        var $bar = $('#ssf-schema-progress-bar');
-        var $text = $('#ssf-schema-progress-text');
-        var $log = $('#ssf-schema-log');
-        
-        $btn.prop('disabled', true);
-        $progress.show();
-        $bar.css({'width':'0%','background':'#2271b1'});
-        $text.text('<?php echo esc_js(__('Starting...', 'smart-seo-fixer')); ?>');
-        $log.empty().show();
-        
-        function processBatch(offset) {
-            $.post(ssfAdmin.ajax_url, {
-                action: 'ssf_bulk_regenerate_schemas',
-                nonce: ssfAdmin.nonce,
-                mode: 'regenerate',
-                offset: offset,
-                batch_size: 2
-            }, function(response) {
-                if (!response.success) {
-                    $text.text(response.data.message || '<?php echo esc_js(__('Error occurred.', 'smart-seo-fixer')); ?>');
+        SSF.confirm('<?php echo esc_js(__('This will re-run AI schema generation for ALL posts with custom schemas. This uses your AI API credits. Continue?', 'smart-seo-fixer')); ?>', function() {
+            var $progress = $('#ssf-bulk-progress');
+            var $bar = $('#ssf-schema-progress-bar');
+            var $text = $('#ssf-schema-progress-text');
+            var $log = $('#ssf-schema-log');
+
+            $btn.prop('disabled', true);
+            $progress.show();
+            $bar.css({'width':'0%','background':'#2271b1'});
+            $text.text('<?php echo esc_js(__('Starting...', 'smart-seo-fixer')); ?>');
+            $log.empty().show();
+
+            function processBatch(offset) {
+                $.post(ssfAdmin.ajax_url, {
+                    action: 'ssf_bulk_regenerate_schemas',
+                    nonce: ssfAdmin.nonce,
+                    mode: 'regenerate',
+                    offset: offset,
+                    batch_size: 2
+                }, function(response) {
+                    if (!response.success) {
+                        $text.text(response.data.message || '<?php echo esc_js(__('Error occurred.', 'smart-seo-fixer')); ?>');
+                        $btn.prop('disabled', false);
+                        return;
+                    }
+
+                    var data = response.data;
+                    var newOffset = offset + data.processed;
+                    var pct = data.total > 0 ? Math.round((newOffset / data.total) * 100) : 100;
+
+                    $bar.css('width', pct + '%');
+                    $text.text(newOffset + ' / ' + data.total + ' <?php echo esc_js(__('posts processed', 'smart-seo-fixer')); ?> (' + pct + '%)');
+
+                    if (data.log && data.log.length) {
+                        data.log.forEach(function(entry) {
+                            $log.append('<div>' + entry + '</div>');
+                        });
+                        $log.scrollTop($log[0].scrollHeight);
+                    }
+
+                    if (data.done) {
+                        $bar.css({'width':'100%','background':'#059669'});
+                        $text.text('<?php echo esc_js(__('Complete!', 'smart-seo-fixer')); ?> ' + newOffset + ' <?php echo esc_js(__('posts processed.', 'smart-seo-fixer')); ?>');
+                        $btn.prop('disabled', false);
+                        loadSchemaList();
+                    } else {
+                        processBatch(newOffset);
+                    }
+                }).fail(function() {
+                    $text.text('<?php echo esc_js(__('Request failed. Please try again.', 'smart-seo-fixer')); ?>');
                     $btn.prop('disabled', false);
-                    return;
-                }
-                
-                var data = response.data;
-                var newOffset = offset + data.processed;
-                var pct = data.total > 0 ? Math.round((newOffset / data.total) * 100) : 100;
-                
-                $bar.css('width', pct + '%');
-                $text.text(newOffset + ' / ' + data.total + ' <?php echo esc_js(__('posts processed', 'smart-seo-fixer')); ?> (' + pct + '%)');
-                
-                if (data.log && data.log.length) {
-                    data.log.forEach(function(entry) {
-                        $log.append('<div>' + entry + '</div>');
-                    });
-                    $log.scrollTop($log[0].scrollHeight);
-                }
-                
-                if (data.done) {
-                    $bar.css({'width':'100%','background':'#059669'});
-                    $text.text('<?php echo esc_js(__('Complete!', 'smart-seo-fixer')); ?> ' + newOffset + ' <?php echo esc_js(__('posts processed.', 'smart-seo-fixer')); ?>');
-                    $btn.prop('disabled', false);
-                    loadSchemaList();
-                } else {
-                    processBatch(newOffset);
-                }
-            }).fail(function() {
-                $text.text('<?php echo esc_js(__('Request failed. Please try again.', 'smart-seo-fixer')); ?>');
-                $btn.prop('disabled', false);
-            });
-        }
-        
-        processBatch(0);
+                });
+            }
+
+            processBatch(0);
+        });
     });
     
     // ========================================
     // Bulk: Remove All
     // ========================================
     $('#ssf-remove-all-schemas').on('click', function() {
-        if (!confirm('<?php echo esc_js(__('This will permanently remove ALL custom schemas from every post. This cannot be undone. Continue?', 'smart-seo-fixer')); ?>')) return;
-        
         var $btn = $(this);
-        $btn.prop('disabled', true);
-        
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_bulk_regenerate_schemas',
-            nonce: ssfAdmin.nonce,
-            mode: 'remove',
-            offset: 0,
-            batch_size: 999
-        }, function(response) {
-            $btn.prop('disabled', false);
-            if (response.success) {
-                showToast(response.data.log[0] || '<?php echo esc_js(__('All custom schemas removed.', 'smart-seo-fixer')); ?>', 'success');
-                loadSchemaList();
-            } else {
-                showToast(response.data.message || '<?php echo esc_js(__('Something went wrong.', 'smart-seo-fixer')); ?>', 'error');
-            }
-        }).fail(function() {
-            $btn.prop('disabled', false);
-            showToast('<?php echo esc_js(__('Request failed.', 'smart-seo-fixer')); ?>', 'error');
-        });
+        SSF.confirm('<?php echo esc_js(__('This will permanently remove ALL custom schemas from every post. This cannot be undone. Continue?', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true);
+
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_bulk_regenerate_schemas',
+                nonce: ssfAdmin.nonce,
+                mode: 'remove',
+                offset: 0,
+                batch_size: 999
+            }, function(response) {
+                $btn.prop('disabled', false);
+                if (response.success) {
+                    showToast(response.data.log[0] || '<?php echo esc_js(__('All custom schemas removed.', 'smart-seo-fixer')); ?>', 'success');
+                    loadSchemaList();
+                } else {
+                    showToast(response.data.message || '<?php echo esc_js(__('Something went wrong.', 'smart-seo-fixer')); ?>', 'error');
+                }
+            }).fail(function() {
+                $btn.prop('disabled', false);
+                showToast('<?php echo esc_js(__('Request failed.', 'smart-seo-fixer')); ?>', 'error');
+            });
+        }, { danger: true });
     });
     
     // ========================================

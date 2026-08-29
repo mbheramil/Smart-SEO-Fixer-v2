@@ -613,11 +613,11 @@ jQuery(document).ready(function($) {
                 
                 $row.find('.ssf-col-analyzed').text('<?php esc_html_e('Just now', 'smart-seo-fixer'); ?>');
             } else {
-                alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Analysis failed.', 'smart-seo-fixer'); ?>');
+                SSF.alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Analysis failed.', 'smart-seo-fixer'); ?>');
             }
         }).fail(function(xhr, status, error) {
             $btn.prop('disabled', false).text(originalText);
-            alert('<?php esc_html_e('Request failed:', 'smart-seo-fixer'); ?> ' + error);
+            SSF.alert('<?php esc_html_e('Request failed:', 'smart-seo-fixer'); ?> ' + error);
             console.error('Analyze AJAX Error:', xhr.responseText);
         });
     });
@@ -635,7 +635,7 @@ jQuery(document).ready(function($) {
         var postIds = getSelectedPosts();
         
         if (postIds.length === 0) {
-            alert('<?php esc_html_e('Please select at least one post.', 'smart-seo-fixer'); ?>');
+            SSF.alert('<?php esc_html_e('Please select at least one post.', 'smart-seo-fixer'); ?>');
             return;
         }
         
@@ -652,11 +652,11 @@ jQuery(document).ready(function($) {
             if (response.success) {
                 location.reload();
             } else {
-                alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Bulk analysis failed.', 'smart-seo-fixer'); ?>');
+                SSF.alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Bulk analysis failed.', 'smart-seo-fixer'); ?>');
             }
         }).fail(function(xhr, status, error) {
             $btn.prop('disabled', false);
-            alert('<?php esc_html_e('Request failed:', 'smart-seo-fixer'); ?> ' + error);
+            SSF.alert('<?php esc_html_e('Request failed:', 'smart-seo-fixer'); ?> ' + error);
         });
     });
     
@@ -667,7 +667,7 @@ jQuery(document).ready(function($) {
         selectedPostIds = getSelectedPosts();
         
         if (selectedPostIds.length === 0) {
-            alert('<?php esc_html_e('Please select at least one post.', 'smart-seo-fixer'); ?>');
+            SSF.alert('<?php esc_html_e('Please select at least one post.', 'smart-seo-fixer'); ?>');
             return;
         }
         
@@ -697,7 +697,7 @@ jQuery(document).ready(function($) {
         };
         
         if (!options.generate_title && !options.generate_desc && !options.generate_keywords) {
-            alert('<?php esc_html_e('Please select at least one option to generate.', 'smart-seo-fixer'); ?>');
+            SSF.alert('<?php esc_html_e('Please select at least one option to generate.', 'smart-seo-fixer'); ?>');
             return;
         }
         

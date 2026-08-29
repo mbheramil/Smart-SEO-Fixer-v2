@@ -227,7 +227,7 @@ jQuery(document).ready(function($) {
     // Redirect - save
     $('#ssf-redirect-save').on('click', function() {
         var redirectTo = $('#ssf-redirect-to').val();
-        if (!redirectTo) { alert('Please enter a URL'); return; }
+        if (!redirectTo) { SSF.alert('Please enter a URL'); return; }
         
         var $btn = $(this);
         $btn.prop('disabled', true).text('Creating...');
@@ -247,8 +247,9 @@ jQuery(document).ready(function($) {
     
     // Clear all
     $('#ssf-404-clear-all').on('click', function() {
-        if (!confirm('<?php echo esc_js(__('Clear all 404 logs? This cannot be undone.', 'smart-seo-fixer')); ?>')) return;
-        $.post(ssfAdmin.ajax_url, { action: 'ssf_clear_404_logs', nonce: ssfAdmin.nonce }, function() { load404s(); });
+        SSF.confirm('<?php echo esc_js(__('Clear all 404 logs? This cannot be undone.', 'smart-seo-fixer')); ?>', function() {
+            $.post(ssfAdmin.ajax_url, { action: 'ssf_clear_404_logs', nonce: ssfAdmin.nonce }, function() { load404s(); });
+        }, { danger: true });
     });
     
     load404s();

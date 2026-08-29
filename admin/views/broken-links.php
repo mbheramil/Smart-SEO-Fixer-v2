@@ -262,9 +262,9 @@ jQuery(document).ready(function($) {
     // Bulk Redirect
     $('#ssf-bl-bulk-redirect').on('click', function() {
         var ids = getSelectedIds();
-        if (!ids.length) { alert('<?php esc_html_e('Please select at least one broken link.', 'smart-seo-fixer'); ?>'); return; }
+        if (!ids.length) { SSF.alert('<?php esc_html_e('Please select at least one broken link.', 'smart-seo-fixer'); ?>'); return; }
         var target = $('#ssf-bl-redirect-url').val().trim();
-        if (!target || target.indexOf('http') !== 0) { alert('<?php esc_html_e('Please enter a valid destination URL (must start with http).', 'smart-seo-fixer'); ?>'); return; }
+        if (!target || target.indexOf('http') !== 0) { SSF.alert('<?php esc_html_e('Please enter a valid destination URL (must start with http).', 'smart-seo-fixer'); ?>'); return; }
         
         var $btn = $(this);
         $btn.prop('disabled', true).text('<?php esc_html_e('Applying...', 'smart-seo-fixer'); ?>');
@@ -277,16 +277,16 @@ jQuery(document).ready(function($) {
         }, function(response) {
             $btn.prop('disabled', false).html('<span class="dashicons dashicons-randomize" style="margin-top:3px;"></span> <?php esc_html_e('Apply Redirect', 'smart-seo-fixer'); ?>');
             if (response.success) {
-                alert(response.data.message);
+                SSF.alert(response.data.message);
                 $('#ssf-bl-redirect-url').val('');
                 $('#ssf-bl-select-all').prop('checked', false);
                 loadLinks();
             } else {
-                alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Something went wrong.', 'smart-seo-fixer'); ?>');
+                SSF.alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Something went wrong.', 'smart-seo-fixer'); ?>');
             }
         }).fail(function() {
             $btn.prop('disabled', false).html('<span class="dashicons dashicons-randomize" style="margin-top:3px;"></span> <?php esc_html_e('Apply Redirect', 'smart-seo-fixer'); ?>');
-            alert('<?php esc_html_e('Request failed. Please try again.', 'smart-seo-fixer'); ?>');
+            SSF.alert('<?php esc_html_e('Request failed. Please try again.', 'smart-seo-fixer'); ?>');
         });
     });
 
@@ -323,7 +323,7 @@ jQuery(document).ready(function($) {
                 $btn.closest('tr').fadeOut(function() { $(this).remove(); });
             } else {
                 $btn.prop('disabled', false).text('Recheck');
-                alert(response.data?.error || 'Still broken');
+                SSF.alert(response.data?.error || 'Still broken');
             }
         });
     });

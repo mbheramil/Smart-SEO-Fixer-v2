@@ -563,11 +563,11 @@ jQuery(document).ready(function($) {
                 setTimeout(function() { $btn.prop('disabled', false).html(origHtml); }, 3000);
             } else {
                 $btn.prop('disabled', false).html(origHtml);
-                alert(response.data?.message || 'Error submitting sitemap');
+                SSF.alert(response.data?.message || 'Error submitting sitemap');
             }
         }).fail(function() {
             $btn.prop('disabled', false).html(origHtml);
-            alert('Request failed. Please try again.');
+            SSF.alert('Request failed. Please try again.');
         });
     });
     
@@ -672,41 +672,42 @@ jQuery(document).ready(function($) {
         }
         
         if (!selectedIds.length) {
-            alert('<?php echo esc_js(__('No pages with fixable issues selected.', 'smart-seo-fixer')); ?>');
+            SSF.alert('<?php echo esc_js(__('No pages with fixable issues selected.', 'smart-seo-fixer')); ?>');
             return;
         }
         
-        if (!confirm('<?php echo esc_js(__('This will run AI fixes on the selected pages in the background. You can leave this page. Continue?', 'smart-seo-fixer')); ?>')) return;
-        
-        var $btn = $(this).prop('disabled', true).html('<span class="spinner is-active" style="float:none;margin:0 4px 0 0;"></span> <?php echo esc_js(__('Dispatching...', 'smart-seo-fixer')); ?>');
-        
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_dispatch_job',
-            nonce: ssfAdmin.nonce,
-            job_type: 'not_indexed_ai_fix',
-            items: selectedIds,
-            payload: { issues: JSON.stringify(issuesMap) }
-        }, function(response) {
-            if (!response.success) {
+        var $clickedBtn = $(this);
+        SSF.confirm('<?php echo esc_js(__('This will run AI fixes on the selected pages in the background. You can leave this page. Continue?', 'smart-seo-fixer')); ?>', function() {
+            var $btn = $clickedBtn.prop('disabled', true).html('<span class="spinner is-active" style="float:none;margin:0 4px 0 0;"></span> <?php echo esc_js(__('Dispatching...', 'smart-seo-fixer')); ?>');
+
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_dispatch_job',
+                nonce: ssfAdmin.nonce,
+                job_type: 'not_indexed_ai_fix',
+                items: selectedIds,
+                payload: { issues: JSON.stringify(issuesMap) }
+            }, function(response) {
+                if (!response.success) {
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic" style="vertical-align:text-bottom;"></span> <?php echo esc_js(__('Bulk AI Fix Selected', 'smart-seo-fixer')); ?>');
+                    SSF.alert(response.data?.message || '<?php echo esc_js(__('Failed to create job.', 'smart-seo-fixer')); ?>');
+                    return;
+                }
+
+                idxJobId = response.data.job_id;
                 $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic" style="vertical-align:text-bottom;"></span> <?php echo esc_js(__('Bulk AI Fix Selected', 'smart-seo-fixer')); ?>');
-                alert(response.data?.message || '<?php echo esc_js(__('Failed to create job.', 'smart-seo-fixer')); ?>');
-                return;
-            }
-            
-            idxJobId = response.data.job_id;
-            $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic" style="vertical-align:text-bottom;"></span> <?php echo esc_js(__('Bulk AI Fix Selected', 'smart-seo-fixer')); ?>');
-            
-            // Show progress bar and start polling
-            $('#ssf-idx-job-progress').show();
-            $('#ssf-idx-job-bar').css('width', '0%');
-            $('#ssf-idx-job-text').text('<?php echo esc_js(__('Processing in background...', 'smart-seo-fixer')); ?> 0 / ' + response.data.total);
-            $('#ssf-idx-job-pct').text('0%');
-            $('#ssf-idx-job-status').hide();
-            
-            startIdxPoll();
-        }).fail(function() {
-            $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic" style="vertical-align:text-bottom;"></span> <?php echo esc_js(__('Bulk AI Fix Selected', 'smart-seo-fixer')); ?>');
-            alert('<?php echo esc_js(__('Request failed. Please try again.', 'smart-seo-fixer')); ?>');
+
+                // Show progress bar and start polling
+                $('#ssf-idx-job-progress').show();
+                $('#ssf-idx-job-bar').css('width', '0%');
+                $('#ssf-idx-job-text').text('<?php echo esc_js(__('Processing in background...', 'smart-seo-fixer')); ?> 0 / ' + response.data.total);
+                $('#ssf-idx-job-pct').text('0%');
+                $('#ssf-idx-job-status').hide();
+
+                startIdxPoll();
+            }).fail(function() {
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic" style="vertical-align:text-bottom;"></span> <?php echo esc_js(__('Bulk AI Fix Selected', 'smart-seo-fixer')); ?>');
+                SSF.alert('<?php echo esc_js(__('Request failed. Please try again.', 'smart-seo-fixer')); ?>');
+            });
         });
     });
     
@@ -817,7 +818,7 @@ jQuery(document).ready(function($) {
             $btn.prop('disabled', false).text('Inspect');
             
             if (!response.success) {
-                alert(response.data?.message || 'Inspection failed');
+                SSF.alert(response.data?.message || 'Inspection failed');
                 return;
             }
             
@@ -950,7 +951,7 @@ jQuery(document).ready(function($) {
             $('#ssf-canonical-loading').hide();
 
             if (!response.success) {
-                alert(response.data?.message || '<?php esc_html_e('Scan failed.', 'smart-seo-fixer'); ?>');
+                SSF.alert(response.data?.message || '<?php esc_html_e('Scan failed.', 'smart-seo-fixer'); ?>');
                 return;
             }
 
@@ -970,31 +971,32 @@ jQuery(document).ready(function($) {
         }).fail(function() {
             $btn.prop('disabled', false);
             $('#ssf-canonical-loading').hide();
-            alert('<?php esc_html_e('Request failed. Please try again.', 'smart-seo-fixer'); ?>');
+            SSF.alert('<?php esc_html_e('Request failed. Please try again.', 'smart-seo-fixer'); ?>');
         });
     });
 
     $('#ssf-canonical-fix').on('click', function() {
-        if (!confirm('<?php esc_html_e('Fix all canonical issues now? This will update your database. You can undo individual changes from Edit Post.', 'smart-seo-fixer'); ?>')) return;
+        var $clickedBtn = $(this);
+        SSF.confirm('<?php echo esc_js(__('Fix all canonical issues now? This will update your database. You can undo individual changes from Edit Post.', 'smart-seo-fixer')); ?>', function() {
+            var $btn = $clickedBtn.prop('disabled', true).text('<?php esc_html_e('Fixing...', 'smart-seo-fixer'); ?>');
 
-        var $btn = $(this).prop('disabled', true).text('<?php esc_html_e('Fixing...', 'smart-seo-fixer'); ?>');
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_auto_fix_canonicals',
+                nonce: ssfAdmin.nonce
+            }, function(response) {
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes-alt" style="vertical-align:text-bottom;"></span> <?php esc_html_e('Fix All Issues', 'smart-seo-fixer'); ?>');
 
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_auto_fix_canonicals',
-            nonce: ssfAdmin.nonce
-        }, function(response) {
-            $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes-alt" style="vertical-align:text-bottom;"></span> <?php esc_html_e('Fix All Issues', 'smart-seo-fixer'); ?>');
-
-            if (response.success) {
-                alert(response.data.message);
-                // Trigger a re-scan to show updated state
-                $('#ssf-canonical-scan').trigger('click');
-            } else {
-                alert(response.data?.message || '<?php esc_html_e('Something went wrong.', 'smart-seo-fixer'); ?>');
-            }
-        }).fail(function() {
-            $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes-alt" style="vertical-align:text-bottom;"></span> <?php esc_html_e('Fix All Issues', 'smart-seo-fixer'); ?>');
-            alert('<?php esc_html_e('Request failed. Please try again.', 'smart-seo-fixer'); ?>');
+                if (response.success) {
+                    SSF.alert(response.data.message);
+                    // Trigger a re-scan to show updated state
+                    $('#ssf-canonical-scan').trigger('click');
+                } else {
+                    SSF.alert(response.data?.message || '<?php esc_html_e('Something went wrong.', 'smart-seo-fixer'); ?>');
+                }
+            }).fail(function() {
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes-alt" style="vertical-align:text-bottom;"></span> <?php esc_html_e('Fix All Issues', 'smart-seo-fixer'); ?>');
+                SSF.alert('<?php esc_html_e('Request failed. Please try again.', 'smart-seo-fixer'); ?>');
+            });
         });
     });
 });

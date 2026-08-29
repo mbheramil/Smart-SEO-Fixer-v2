@@ -291,9 +291,101 @@
             }
             
             $container.html(html);
+        },
+
+        /**
+         * Modal replacement for window.confirm() — same "ask, then act only
+         * if yes" shape, but async: pass the code that should run on
+         * confirmation as onConfirm instead of relying on a return value.
+         *
+         *   SSF.confirm('Delete this redirect?', function() { ...do it... });
+         *
+         * options: { title, confirmText, cancelText, danger, onCancel }
+         * onCancel fires on any dismissal that isn't a confirm — the Cancel
+         * button, a backdrop click, or Escape — useful for reverting UI that
+         * already changed optimistically before the modal appeared (e.g. a
+         * checkbox the browser toggles before 'change' fires).
+         */
+        confirm: function(message, onConfirm, options) {
+            options = options || {};
+            var $existing = $('.ssf-confirm-modal, .ssf-alert-modal');
+            if ($existing.length) $existing.remove();
+
+            var confirmClass = 'button button-primary ssf-modal-confirm' + (options.danger ? ' ssf-modal-confirm-danger' : '');
+            var $modal = $(
+                '<div class="ssf-modal ssf-confirm-modal">' +
+                    '<div class="ssf-modal-content">' +
+                        (options.title ? '<div class="ssf-modal-header"><h3>' + this.escapeHtml(options.title) + '</h3></div>' : '') +
+                        '<div class="ssf-modal-body"><p style="margin:0;">' + this.escapeHtml(message) + '</p></div>' +
+                        '<div class="ssf-modal-footer">' +
+                            '<button type="button" class="button ssf-modal-cancel">' + this.escapeHtml(options.cancelText || 'Cancel') + '</button>' +
+                            '<button type="button" class="' + confirmClass + '">' + this.escapeHtml(options.confirmText || 'Confirm') + '</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>'
+            );
+
+            var confirmed = false;
+            function close() {
+                $modal.remove();
+                $(document).off('keydown.ssfModal');
+                if (!confirmed && options.onCancel) options.onCancel();
+            }
+
+            $modal.on('click', function(e) { if (e.target === this) close(); });
+            $modal.find('.ssf-modal-cancel').on('click', close);
+            $modal.find('.ssf-modal-confirm').on('click', function() {
+                confirmed = true;
+                close();
+                if (onConfirm) onConfirm();
+            });
+            $(document).on('keydown.ssfModal', function(e) {
+                if (e.key === 'Escape') close();
+            });
+
+            $('body').append($modal);
+            $modal.find('.ssf-modal-confirm').trigger('focus');
+        },
+
+        /**
+         * Modal replacement for window.alert() — fire-and-forget, no return
+         * value to wait on, so every existing alert(msg) call is a direct
+         * swap for SSF.alert(msg).
+         */
+        alert: function(message, options) {
+            options = options || {};
+            var $existing = $('.ssf-confirm-modal, .ssf-alert-modal');
+            if ($existing.length) $existing.remove();
+
+            var $modal = $(
+                '<div class="ssf-modal ssf-alert-modal">' +
+                    '<div class="ssf-modal-content">' +
+                        (options.title ? '<div class="ssf-modal-header"><h3>' + this.escapeHtml(options.title) + '</h3></div>' : '') +
+                        '<div class="ssf-modal-body"><p style="margin:0;">' + this.escapeHtml(message) + '</p></div>' +
+                        '<div class="ssf-modal-footer">' +
+                            '<button type="button" class="button button-primary ssf-modal-ok">' + this.escapeHtml(options.okText || 'OK') + '</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>'
+            );
+
+            function close() {
+                $modal.remove();
+                $(document).off('keydown.ssfModal');
+                if (options.onClose) options.onClose();
+            }
+
+            $modal.on('click', function(e) { if (e.target === this) close(); });
+            $modal.find('.ssf-modal-ok').on('click', close);
+            $(document).on('keydown.ssfModal', function(e) {
+                if (e.key === 'Escape' || e.key === 'Enter') close();
+            });
+
+            $('body').append($modal);
+            $modal.find('.ssf-modal-ok').trigger('focus');
         }
     };
-    
+
     // Initialize on document ready
     $(document).ready(function() {
         SSF.init();
@@ -340,7 +432,7 @@
 
         fetchTemplate: function() {
             var url = $('#ssf-template-url').val().trim();
-            if (!url) { alert('Please enter a template URL.'); return; }
+            if (!url) { SSF.alert('Please enter a template URL.'); return; }
             var $status = $('#ssf-template-status');
             $status.html('<span class="spinner is-active" style="float:none;margin:0 5px 0 0;"></span> Fetching template…');
             $.post(ssfAdmin.ajax_url, {
@@ -384,7 +476,7 @@
             });
 
             if (!sections.length) {
-                alert('Please select at least one section.');
+                SSF.alert('Please select at least one section.');
                 return;
             }
 
@@ -405,11 +497,11 @@
                     $('#ssf-report-config').hide();
                     $('#ssf-report-output').show();
                 } else {
-                    alert(res.data && res.data.message ? res.data.message : 'Failed to generate report.');
+                    SSF.alert(res.data && res.data.message ? res.data.message : 'Failed to generate report.');
                 }
             }).fail(function() {
                 $btn.prop('disabled', false).html('<span class="dashicons dashicons-analytics"></span> Generate Report');
-                alert('Request failed. Please try again.');
+                SSF.alert('Request failed. Please try again.');
             });
         },
 
@@ -913,71 +1005,69 @@
 
         reanalyzeAll: function() {
             var self = this;
-            if (!window.confirm('Re-analyze every published page? This recalculates all SEO scores using the current content and meta. On large sites this may take a few minutes.')) {
-                return;
-            }
+            SSF.confirm('Re-analyze every published page? This recalculates all SEO scores using the current content and meta. On large sites this may take a few minutes.', function() {
+                var $btn = $('#ssf-reanalyze-all');
+                var $gen = $('#ssf-generate-report');
+                var $progress = $('#ssf-reanalyze-progress');
+                var $bar = $('#ssf-reanalyze-bar');
+                var $label = $('#ssf-reanalyze-label');
+                var $count = $('#ssf-reanalyze-count');
 
-            var $btn = $('#ssf-reanalyze-all');
-            var $gen = $('#ssf-generate-report');
-            var $progress = $('#ssf-reanalyze-progress');
-            var $bar = $('#ssf-reanalyze-bar');
-            var $label = $('#ssf-reanalyze-label');
-            var $count = $('#ssf-reanalyze-count');
+                var originalBtn = $btn.html();
+                $btn.prop('disabled', true).html('<span class="dashicons dashicons-update ssf-spin"></span> Re-analyzing…');
+                $gen.prop('disabled', true);
+                $progress.show();
+                $bar.css('width', '0%');
+                $label.text('Starting…');
+                $count.text('0 / 0');
 
-            var originalBtn = $btn.html();
-            $btn.prop('disabled', true).html('<span class="dashicons dashicons-update ssf-spin"></span> Re-analyzing…');
-            $gen.prop('disabled', true);
-            $progress.show();
-            $bar.css('width', '0%');
-            $label.text('Starting…');
-            $count.text('0 / 0');
+                var offset = 0;
+                var batchSize = 10;
+                var total = 0;
+                var processed = 0;
 
-            var offset = 0;
-            var batchSize = 10;
-            var total = 0;
-            var processed = 0;
+                function step() {
+                    $.post(ssfAdmin.ajax_url, {
+                        action: 'ssf_bulk_analyze',
+                        nonce: ssfAdmin.nonce,
+                        offset: offset,
+                        batch_size: batchSize,
+                        analyze_mode: 'all'
+                    }).done(function(resp) {
+                        if (!resp || !resp.success) {
+                            var msg = (resp && resp.data && resp.data.message) ? resp.data.message : 'Analyze failed.';
+                            $label.text('Error: ' + msg);
+                            $btn.prop('disabled', false).html(originalBtn);
+                            $gen.prop('disabled', false);
+                            return;
+                        }
+                        var data = resp.data || {};
+                        total = parseInt(data.total, 10) || total;
+                        processed += parseInt(data.processed, 10) || 0;
+                        offset += batchSize;
 
-            function step() {
-                $.post(ssfAdmin.ajax_url, {
-                    action: 'ssf_bulk_analyze',
-                    nonce: ssfAdmin.nonce,
-                    offset: offset,
-                    batch_size: batchSize,
-                    analyze_mode: 'all'
-                }).done(function(resp) {
-                    if (!resp || !resp.success) {
-                        var msg = (resp && resp.data && resp.data.message) ? resp.data.message : 'Analyze failed.';
-                        $label.text('Error: ' + msg);
+                        var pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+                        $bar.css('width', pct + '%');
+                        $count.text(processed + ' / ' + total);
+                        $label.text('Re-analyzing pages… (' + pct + '%)');
+
+                        if (data.done) {
+                            $bar.css('width', '100%');
+                            $label.html('<span class="dashicons dashicons-yes-alt" style="color:#16a34a;"></span> Done — ' + processed + ' pages re-analyzed. Click <strong>Generate Report</strong> to see the updated score.');
+                            $btn.prop('disabled', false).html(originalBtn);
+                            $gen.prop('disabled', false);
+                        } else {
+                            step();
+                        }
+                    }).fail(function(xhr) {
+                        $label.text('Network error: ' + (xhr.statusText || 'failed'));
                         $btn.prop('disabled', false).html(originalBtn);
                         $gen.prop('disabled', false);
-                        return;
-                    }
-                    var data = resp.data || {};
-                    total = parseInt(data.total, 10) || total;
-                    processed += parseInt(data.processed, 10) || 0;
-                    offset += batchSize;
+                    });
+                }
 
-                    var pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
-                    $bar.css('width', pct + '%');
-                    $count.text(processed + ' / ' + total);
-                    $label.text('Re-analyzing pages… (' + pct + '%)');
-
-                    if (data.done) {
-                        $bar.css('width', '100%');
-                        $label.html('<span class="dashicons dashicons-yes-alt" style="color:#16a34a;"></span> Done — ' + processed + ' pages re-analyzed. Click <strong>Generate Report</strong> to see the updated score.');
-                        $btn.prop('disabled', false).html(originalBtn);
-                        $gen.prop('disabled', false);
-                    } else {
-                        step();
-                    }
-                }).fail(function(xhr) {
-                    $label.text('Network error: ' + (xhr.statusText || 'failed'));
-                    $btn.prop('disabled', false).html(originalBtn);
-                    $gen.prop('disabled', false);
-                });
-            }
-
-            step();
+                step();
+            });
         },
 
         statBox: function(number, label, subtitle, extraClass) {
@@ -1026,95 +1116,93 @@
         var category = $btn.data('category');
         var count = parseInt($btn.data('count'), 10);
 
-        if (!confirm('AI Fix "' + issueText + '" across ' + count + ' pages?\n\nThis will generate missing SEO titles, descriptions, and keywords for affected pages.')) {
-            return;
-        }
-
-        // Auto-detect fix options based on category
-        var options = { generate_title: true, generate_desc: true, generate_keywords: true, overwrite: false };
-        var catLower = category.toLowerCase();
-        if (catLower === 'title') {
-            options = { generate_title: true, generate_desc: false, generate_keywords: true, overwrite: true };
-        } else if (catLower === 'description') {
-            options = { generate_title: false, generate_desc: true, generate_keywords: true, overwrite: true };
-        } else if (catLower === 'keywords') {
-            options = { generate_title: false, generate_desc: false, generate_keywords: true, overwrite: true };
-        }
-
-        var $modal = $('#ssf-factor-fix-modal');
-        var $status = $('#ssf-factor-fix-status');
-        var $bar = $('#ssf-factor-fix-bar');
-        var $log = $('#ssf-factor-fix-log');
-        var $title = $('#ssf-factor-fix-title');
-
-        $title.text('AI Fix: ' + issueText);
-        $status.text('Fetching affected pages...');
-        $bar.css('width', '0%');
-        $log.html('');
-        $modal.show();
-        $btn.prop('disabled', true).text('Fixing...');
-
-        // Step 1: Get post IDs with this issue
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_get_posts_by_issue',
-            nonce: ssfAdmin.nonce,
-            issue: issueText
-        }, function(res) {
-            if (!res.success || !res.data.post_ids.length) {
-                $status.text('No pages found with this issue.');
-                $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic"></span> AI Fix');
-                return;
+        SSF.confirm('AI Fix "' + issueText + '" across ' + count + ' pages?\n\nThis will generate missing SEO titles, descriptions, and keywords for affected pages.', function() {
+            // Auto-detect fix options based on category
+            var options = { generate_title: true, generate_desc: true, generate_keywords: true, overwrite: false };
+            var catLower = category.toLowerCase();
+            if (catLower === 'title') {
+                options = { generate_title: true, generate_desc: false, generate_keywords: true, overwrite: true };
+            } else if (catLower === 'description') {
+                options = { generate_title: false, generate_desc: true, generate_keywords: true, overwrite: true };
+            } else if (catLower === 'keywords') {
+                options = { generate_title: false, generate_desc: false, generate_keywords: true, overwrite: true };
             }
 
-            var postIds = res.data.post_ids;
-            var total = postIds.length;
-            var index = 0;
-            var successCount = 0;
-            var failCount = 0;
+            var $modal = $('#ssf-factor-fix-modal');
+            var $status = $('#ssf-factor-fix-status');
+            var $bar = $('#ssf-factor-fix-bar');
+            var $log = $('#ssf-factor-fix-log');
+            var $title = $('#ssf-factor-fix-title');
 
-            $status.text('Fixing 0 of ' + total + ' pages...');
+            $title.text('AI Fix: ' + issueText);
+            $status.text('Fetching affected pages...');
+            $bar.css('width', '0%');
+            $log.html('');
+            $modal.show();
+            $btn.prop('disabled', true).text('Fixing...');
 
-            function fixNext() {
-                if (index >= total) {
-                    var pct = 100;
-                    $bar.css('width', pct + '%');
-                    $status.html('<strong>Done!</strong> ' + successCount + ' fixed, ' + failCount + ' failed out of ' + total + ' pages.');
-                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes-alt"></span> Done');
+            // Step 1: Get post IDs with this issue
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_get_posts_by_issue',
+                nonce: ssfAdmin.nonce,
+                issue: issueText
+            }, function(res) {
+                if (!res.success || !res.data.post_ids.length) {
+                    $status.text('No pages found with this issue.');
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic"></span> AI Fix');
                     return;
                 }
 
-                $.post(ssfAdmin.ajax_url, {
-                    action: 'ssf_ai_fix_single',
-                    nonce: ssfAdmin.nonce,
-                    post_id: postIds[index],
-                    options: options
-                }, function(resp) {
-                    index++;
-                    var pct = Math.round((index / total) * 100);
-                    $bar.css('width', pct + '%');
-                    $status.text('Fixing ' + index + ' of ' + total + ' pages...');
+                var postIds = res.data.post_ids;
+                var total = postIds.length;
+                var index = 0;
+                var successCount = 0;
+                var failCount = 0;
 
-                    if (resp.success) {
-                        successCount++;
-                        $log.prepend('<div class="ssf-fix-log-item ssf-fix-success">\u2705 ' + SSF_ClientReport.esc(resp.data.title) + ' &mdash; ' + SSF_ClientReport.esc(resp.data.message) + '</div>');
-                    } else {
-                        failCount++;
-                        $log.prepend('<div class="ssf-fix-log-item ssf-fix-fail">\u274c ' + SSF_ClientReport.esc(resp.data ? resp.data.message : 'Unknown error') + '</div>');
+                $status.text('Fixing 0 of ' + total + ' pages...');
+
+                function fixNext() {
+                    if (index >= total) {
+                        var pct = 100;
+                        $bar.css('width', pct + '%');
+                        $status.html('<strong>Done!</strong> ' + successCount + ' fixed, ' + failCount + ' failed out of ' + total + ' pages.');
+                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes-alt"></span> Done');
+                        return;
                     }
 
-                    setTimeout(fixNext, 300);
-                }).fail(function() {
-                    index++;
-                    failCount++;
-                    $log.prepend('<div class="ssf-fix-log-item ssf-fix-fail">\u274c Request failed for post #' + postIds[index - 1] + '</div>');
-                    setTimeout(fixNext, 300);
-                });
-            }
+                    $.post(ssfAdmin.ajax_url, {
+                        action: 'ssf_ai_fix_single',
+                        nonce: ssfAdmin.nonce,
+                        post_id: postIds[index],
+                        options: options
+                    }, function(resp) {
+                        index++;
+                        var pct = Math.round((index / total) * 100);
+                        $bar.css('width', pct + '%');
+                        $status.text('Fixing ' + index + ' of ' + total + ' pages...');
 
-            fixNext();
-        }).fail(function() {
-            $status.text('Failed to fetch pages. Please try again.');
-            $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic"></span> AI Fix');
+                        if (resp.success) {
+                            successCount++;
+                            $log.prepend('<div class="ssf-fix-log-item ssf-fix-success">\u2705 ' + SSF_ClientReport.esc(resp.data.title) + ' &mdash; ' + SSF_ClientReport.esc(resp.data.message) + '</div>');
+                        } else {
+                            failCount++;
+                            $log.prepend('<div class="ssf-fix-log-item ssf-fix-fail">\u274c ' + SSF_ClientReport.esc(resp.data ? resp.data.message : 'Unknown error') + '</div>');
+                        }
+
+                        setTimeout(fixNext, 300);
+                    }).fail(function() {
+                        index++;
+                        failCount++;
+                        $log.prepend('<div class="ssf-fix-log-item ssf-fix-fail">\u274c Request failed for post #' + postIds[index - 1] + '</div>');
+                        setTimeout(fixNext, 300);
+                    });
+                }
+
+                fixNext();
+            }).fail(function() {
+                $status.text('Failed to fetch pages. Please try again.');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic"></span> AI Fix');
+            });
         });
     });
 
@@ -1248,9 +1336,9 @@
             var msg = all
                 ? 'This will REPLACE alt text on every image — including text written by hand. This cannot be undone. Continue?'
                 : 'This will replace alt text previously generated by this plugin (filename-based and old buggy text). Alt text that looks hand-written is kept. Continue?';
-            if (!window.confirm(msg)) { return; }
-
-            startRun('regenerate');
+            SSF.confirm(msg, function() {
+                startRun('regenerate');
+            }, { danger: all });
         });
 
         $stop.on('click', function() {
@@ -1516,47 +1604,51 @@
             var id      = $btn.data('id');
             var force   = String($btn.data('force')) === '1';
 
-            if (force && !window.confirm('Replace the existing alt text for this image?')) {
-                return;
+            function proceed() {
+                var label = $btn.text();
+                $btn.prop('disabled', true).text('Working…');
+                $status.html('').css('color', '');
+
+                request(id, force, function(err, d) {
+                    $btn.prop('disabled', false);
+
+                    if (err) {
+                        $btn.text(label);
+                        $status.css('color', '#d63638').text(err);
+                        return;
+                    }
+
+                    if (d.changed) {
+                        var mark = '<span class="ssf-alt-value">' + escHtml(d.alt) + '</span>';
+                        if (d.source !== 'ai') {
+                            mark += ' <span class="ssf-alt-source" style="color:#996800;font-size:11px;' +
+                                    'white-space:nowrap;" title="' + escHtml(d.note || '') +
+                                    '">(from filename)</span>';
+                        }
+                        $text.html(mark);
+                        $btn.text('Rewrite').data('force', '1');
+
+                        if (d.source === 'ai') {
+                            $status.css('color', '#00a32a').text('✓ AI');
+                        } else {
+                            // Not a clean success: the text came from the filename,
+                            // so show why rather than a green tick.
+                            $status.css('color', '#996800')
+                                   .attr('title', d.note || '')
+                                   .text('⚠ filename' + (d.note ? ' — ' + d.note : ''));
+                        }
+                    } else {
+                        $btn.text(label);
+                        $status.css('color', '#646970').text(d.message || 'No change.');
+                    }
+                });
             }
 
-            var label = $btn.text();
-            $btn.prop('disabled', true).text('Working…');
-            $status.html('').css('color', '');
-
-            request(id, force, function(err, d) {
-                $btn.prop('disabled', false);
-
-                if (err) {
-                    $btn.text(label);
-                    $status.css('color', '#d63638').text(err);
-                    return;
-                }
-
-                if (d.changed) {
-                    var mark = '<span class="ssf-alt-value">' + escHtml(d.alt) + '</span>';
-                    if (d.source !== 'ai') {
-                        mark += ' <span class="ssf-alt-source" style="color:#996800;font-size:11px;' +
-                                'white-space:nowrap;" title="' + escHtml(d.note || '') +
-                                '">(from filename)</span>';
-                    }
-                    $text.html(mark);
-                    $btn.text('Rewrite').data('force', '1');
-
-                    if (d.source === 'ai') {
-                        $status.css('color', '#00a32a').text('✓ AI');
-                    } else {
-                        // Not a clean success: the text came from the filename,
-                        // so show why rather than a green tick.
-                        $status.css('color', '#996800')
-                               .attr('title', d.note || '')
-                               .text('⚠ filename' + (d.note ? ' — ' + d.note : ''));
-                    }
-                } else {
-                    $btn.text(label);
-                    $status.css('color', '#646970').text(d.message || 'No change.');
-                }
-            });
+            if (force) {
+                SSF.confirm('Replace the existing alt text for this image?', proceed);
+            } else {
+                proceed();
+            }
         });
 
         // --- Attachment edit screen (post.php) ------------------------------
@@ -1600,37 +1692,42 @@
             }
 
             var existing = $input.length ? String($input.val() || '').trim() : '';
-            if (existing !== '' && !window.confirm('Replace the current alt text?')) {
-                return;
+
+            function proceed() {
+                var label = $btn.text();
+                $btn.prop('disabled', true).text('Generating…');
+                $status.html('').css('color', '');
+
+                // Force, because the field may hold text the server has not seen yet.
+                request(id, true, function(err, d) {
+                    $btn.prop('disabled', false).text(label);
+
+                    if (err) {
+                        $status.css('color', '#d63638').text(err);
+                        return;
+                    }
+
+                    if ($input.length) {
+                        // Fire change so the media modal persists it in its model.
+                        $input.val(d.alt).trigger('change');
+                    }
+
+                    if (d.source === 'ai') {
+                        $status.css('color', '#00a32a').attr('title', '').text('✓ Described by AI');
+                    } else {
+                        // Filename-derived text is not a real description — say why.
+                        $status.css('color', '#996800')
+                               .attr('title', d.note || '')
+                               .text('⚠ From filename' + (d.note ? ' — ' + d.note : ''));
+                    }
+                });
             }
 
-            var label = $btn.text();
-            $btn.prop('disabled', true).text('Generating…');
-            $status.html('').css('color', '');
-
-            // Force, because the field may hold text the server has not seen yet.
-            request(id, true, function(err, d) {
-                $btn.prop('disabled', false).text(label);
-
-                if (err) {
-                    $status.css('color', '#d63638').text(err);
-                    return;
-                }
-
-                if ($input.length) {
-                    // Fire change so the media modal persists it in its model.
-                    $input.val(d.alt).trigger('change');
-                }
-
-                if (d.source === 'ai') {
-                    $status.css('color', '#00a32a').attr('title', '').text('✓ Described by AI');
-                } else {
-                    // Filename-derived text is not a real description — say why.
-                    $status.css('color', '#996800')
-                           .attr('title', d.note || '')
-                           .text('⚠ From filename' + (d.note ? ' — ' + d.note : ''));
-                }
-            });
+            if (existing !== '') {
+                SSF.confirm('Replace the current alt text?', proceed);
+            } else {
+                proceed();
+            }
         });
     });
 

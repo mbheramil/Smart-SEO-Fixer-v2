@@ -321,15 +321,19 @@ jQuery(document).ready(function($) {
     }
 
     $('#analyze-unanalyzed-btn').on('click', function() {
-        if (!confirm('<?php echo esc_js(__('Analyze all unanalyzed posts?', 'smart-seo-fixer')); ?>')) return;
-        $(this).prop('disabled', true);
-        runAnalyzer('unanalyzed');
+        var $btn = $(this);
+        SSF.confirm('<?php echo esc_js(__('Analyze all unanalyzed posts?', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true);
+            runAnalyzer('unanalyzed');
+        });
     });
 
     $('#reanalyze-all-btn').on('click', function() {
-        if (!confirm('<?php echo esc_js(__('Re-analyze ALL published posts? This may take a while.', 'smart-seo-fixer')); ?>')) return;
-        $(this).prop('disabled', true);
-        runAnalyzer('all');
+        var $btn = $(this);
+        SSF.confirm('<?php echo esc_js(__('Re-analyze ALL published posts? This may take a while.', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true);
+            runAnalyzer('all');
+        });
     });
 });
 </script>

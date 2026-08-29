@@ -287,15 +287,15 @@ jQuery(document).ready(function($) {
     // Cancel job
     $(document).on('click', '.ssf-cancel-job', function() {
         var $btn = $(this);
-        if (!confirm('<?php esc_html_e('Cancel this job? Items already processed will keep their changes.', 'smart-seo-fixer'); ?>')) return;
-        
-        $btn.prop('disabled', true);
-        $.post(ajaxurl, {
-            action: 'ssf_cancel_job',
-            nonce: ssfAdmin.nonce,
-            job_id: $btn.data('id')
-        }, function(response) {
-            loadJobs();
+        SSF.confirm('<?php echo esc_js(__('Cancel this job? Items already processed will keep their changes.', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true);
+            $.post(ajaxurl, {
+                action: 'ssf_cancel_job',
+                nonce: ssfAdmin.nonce,
+                job_id: $btn.data('id')
+            }, function(response) {
+                loadJobs();
+            });
         });
     });
     
@@ -311,7 +311,7 @@ jQuery(document).ready(function($) {
             if (response.success) {
                 loadJobs();
             } else {
-                alert(response.data.message);
+                SSF.alert(response.data.message);
                 $btn.prop('disabled', false);
             }
         });

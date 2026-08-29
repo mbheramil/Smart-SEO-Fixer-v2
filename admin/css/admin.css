@@ -563,6 +563,24 @@
     padding: 20px;
 }
 
+.ssf-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--ssf-gray-100);
+}
+
+.ssf-modal-confirm-danger {
+    background: var(--ssf-danger) !important;
+    border-color: var(--ssf-danger) !important;
+}
+
+.ssf-modal-confirm-danger:hover {
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+}
+
 .ssf-progress-bar {
     height: 10px;
     background: var(--ssf-gray-200);

@@ -302,7 +302,7 @@ jQuery(document).ready(function($) {
         var genKw    = $('input[name="bulk_opt_keywords"]').is(':checked');
 
         if (!genTitle && !genDesc && !genKw) {
-            alert('<?php echo esc_js(__('Select at least one option to generate.', 'smart-seo-fixer')); ?>');
+            SSF.alert('<?php echo esc_js(__('Select at least one option to generate.', 'smart-seo-fixer')); ?>');
             return;
         }
 
@@ -312,30 +312,28 @@ jQuery(document).ready(function($) {
         });
 
         if (!selectedIds.length) {
-            alert('<?php echo esc_js(__('No posts selected.', 'smart-seo-fixer')); ?>');
+            SSF.alert('<?php echo esc_js(__('No posts selected.', 'smart-seo-fixer')); ?>');
             return;
         }
 
-        if (!confirm('<?php echo esc_js(__('AI will generate SEO data for', 'smart-seo-fixer')); ?> ' + selectedIds.length + ' <?php echo esc_js(__('posts using AWS Bedrock. Continue?', 'smart-seo-fixer')); ?>')) {
-            return;
-        }
+        SSF.confirm('<?php echo esc_js(__('AI will generate SEO data for', 'smart-seo-fixer')); ?> ' + selectedIds.length + ' <?php echo esc_js(__('posts using AWS Bedrock. Continue?', 'smart-seo-fixer')); ?>', function() {
+            // Switch to progress view
+            $('#bulk-step-config').hide();
+            $('#bulk-step-progress').show();
+            $('#bulk-progress-fill').css('width', '0%');
+            $('#bulk-progress-text').text('0%');
+            $('#bulk-progress-log').html('');
+            $('#bulk-done-btn').hide();
 
-        // Switch to progress view
-        $('#bulk-step-config').hide();
-        $('#bulk-step-progress').show();
-        $('#bulk-progress-fill').css('width', '0%');
-        $('#bulk-progress-text').text('0%');
-        $('#bulk-progress-log').html('');
-        $('#bulk-done-btn').hide();
+            var options = {
+                generate_title: genTitle,
+                generate_desc: genDesc,
+                generate_keywords: genKw,
+                apply_to: $('input[name="bulk_apply_to"]:checked').val()
+            };
 
-        var options = {
-            generate_title: genTitle,
-            generate_desc: genDesc,
-            generate_keywords: genKw,
-            apply_to: $('input[name="bulk_apply_to"]:checked').val()
-        };
-
-        runBulk(options, selectedIds);
+            runBulk(options, selectedIds);
+        });
     });
 
     function runBulk(options, postIds) {

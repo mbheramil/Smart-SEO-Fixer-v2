@@ -1214,14 +1214,14 @@ jQuery(document).ready(function($) {
                 if (inserted > 0) {
                     ssfButtonSuccess($btn, inserted + ' <?php esc_html_e('link(s) added!', 'smart-seo-fixer'); ?>');
                 } else {
-                    alert('<?php esc_html_e('Anchor phrases could not be located in the editor. The post may need to be saved and reopened first.', 'smart-seo-fixer'); ?>');
+                    SSF.alert('<?php esc_html_e('Anchor phrases could not be located in the editor. The post may need to be saved and reopened first.', 'smart-seo-fixer'); ?>');
                 }
             } else {
-                alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('No related posts found for internal linking.', 'smart-seo-fixer'); ?>');
+                SSF.alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('No related posts found for internal linking.', 'smart-seo-fixer'); ?>');
             }
         }).fail(function(xhr, status, error) {
             $btn.prop('disabled', false).find('.dashicons').removeClass('spin');
-            alert('<?php esc_html_e('Request failed:', 'smart-seo-fixer'); ?> ' + error);
+            SSF.alert('<?php esc_html_e('Request failed:', 'smart-seo-fixer'); ?> ' + error);
         });
     });
     
@@ -1250,14 +1250,14 @@ jQuery(document).ready(function($) {
                 if (inserted > 0) {
                     ssfButtonSuccess($btn, inserted + ' <?php esc_html_e('link(s) added!', 'smart-seo-fixer'); ?>');
                 } else {
-                    alert('<?php esc_html_e('Anchor phrases could not be located in the editor. The post may need to be saved and reopened first.', 'smart-seo-fixer'); ?>');
+                    SSF.alert('<?php esc_html_e('Anchor phrases could not be located in the editor. The post may need to be saved and reopened first.', 'smart-seo-fixer'); ?>');
                 }
             } else {
-                alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Could not generate external links.', 'smart-seo-fixer'); ?>');
+                SSF.alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Could not generate external links.', 'smart-seo-fixer'); ?>');
             }
         }).fail(function(xhr, status, error) {
             $btn.prop('disabled', false).find('.dashicons').removeClass('spin');
-            alert('<?php esc_html_e('Request failed:', 'smart-seo-fixer'); ?> ' + error);
+            SSF.alert('<?php esc_html_e('Request failed:', 'smart-seo-fixer'); ?> ' + error);
         });
     });
     
@@ -1319,7 +1319,7 @@ jQuery(document).ready(function($) {
                     showAiResults('<?php esc_html_e('Google Map', 'smart-seo-fixer'); ?>',
                         '<p><?php esc_html_e('Could not auto-insert. Copy the code below:', 'smart-seo-fixer'); ?></p>' +
                         '<textarea class="large-text" rows="4" readonly onclick="this.select();">' + embedCode + '</textarea>',
-                        '<button type="button" class="button button-primary" onclick="navigator.clipboard.writeText(jQuery(\'#ai-results-content textarea\').val());alert(\'<?php esc_html_e('Copied!', 'smart-seo-fixer'); ?>\');"><?php esc_html_e('Copy', 'smart-seo-fixer'); ?></button>');
+                        '<button type="button" class="button button-primary" onclick="navigator.clipboard.writeText(jQuery(\'#ai-results-content textarea\').val());SSF.alert(\'<?php esc_html_e('Copied!', 'smart-seo-fixer'); ?>\');"><?php esc_html_e('Copy', 'smart-seo-fixer'); ?></button>');
                 }
             } else {
                 showAiResults('<?php esc_html_e('Google Map', 'smart-seo-fixer'); ?>', 
@@ -1382,7 +1382,7 @@ jQuery(document).ready(function($) {
         if (ssfInsertContent(placeholder)) {
             ssfButtonSuccess($btn, '<?php esc_html_e('Added!', 'smart-seo-fixer'); ?>');
         } else {
-            alert('<?php esc_html_e('Could not detect editor.', 'smart-seo-fixer'); ?>');
+            SSF.alert('<?php esc_html_e('Could not detect editor.', 'smart-seo-fixer'); ?>');
         }
     });
     
@@ -1507,7 +1507,7 @@ jQuery(document).ready(function($) {
                 html += '<p class="description"><?php esc_html_e('Review the content above, then apply it to the editor or copy it.', 'smart-seo-fixer'); ?></p>';
                 
                 var actions = '<button type="button" class="button button-primary" id="ssf-apply-to-editor"><?php esc_html_e('Apply to Editor', 'smart-seo-fixer'); ?></button> ';
-                actions += '<button type="button" class="button" onclick="navigator.clipboard.writeText(window.ssfImprovedContent).then(function(){alert(\'<?php esc_html_e('Copied to clipboard!', 'smart-seo-fixer'); ?>\');});"><?php esc_html_e('Copy to Clipboard', 'smart-seo-fixer'); ?></button>';
+                actions += '<button type="button" class="button" onclick="navigator.clipboard.writeText(window.ssfImprovedContent).then(function(){SSF.alert(\'<?php esc_html_e('Copied to clipboard!', 'smart-seo-fixer'); ?>\');});"><?php esc_html_e('Copy to Clipboard', 'smart-seo-fixer'); ?></button>';
                 
                 showAiResults('<?php esc_html_e('Readability Improvements', 'smart-seo-fixer'); ?>', html, actions);
             } else {
@@ -1591,31 +1591,32 @@ jQuery(document).ready(function($) {
                     '<p class="description"><?php esc_html_e('No further action needed — visitors and search engines will see it automatically.', 'smart-seo-fixer'); ?></p>');
             } else {
                 $btn.prop('disabled', false).text('<?php esc_html_e('Save Schema to Post', 'smart-seo-fixer'); ?>');
-                alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Save failed.', 'smart-seo-fixer'); ?>');
+                SSF.alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Save failed.', 'smart-seo-fixer'); ?>');
             }
         }).fail(function() {
             $btn.prop('disabled', false).text('<?php esc_html_e('Save Schema to Post', 'smart-seo-fixer'); ?>');
-            alert('<?php esc_html_e('Request failed.', 'smart-seo-fixer'); ?>');
+            SSF.alert('<?php esc_html_e('Request failed.', 'smart-seo-fixer'); ?>');
         });
     });
     
     // Remove existing schema from post
     $(document).on('click', '#ssf-remove-schema', function() {
-        if (!confirm('<?php esc_html_e('Remove the custom schema from this post?', 'smart-seo-fixer'); ?>')) return;
         var $btn = $(this);
-        $btn.prop('disabled', true);
-        
-        $.post(ssfAdmin.ajax_url, {
-            action: 'ssf_suggest_schema',
-            nonce: ssfAdmin.nonce,
-            post_id: postId,
-            schema_action: 'remove'
-        }, function(response) {
-            if (response.success) {
-                showAiResults('<?php esc_html_e('Schema Removed', 'smart-seo-fixer'); ?>', 
-                    '<p>✅ ' + response.data.message + '</p>');
-            }
-        });
+        SSF.confirm('<?php echo esc_js(__('Remove the custom schema from this post?', 'smart-seo-fixer')); ?>', function() {
+            $btn.prop('disabled', true);
+
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_suggest_schema',
+                nonce: ssfAdmin.nonce,
+                post_id: postId,
+                schema_action: 'remove'
+            }, function(response) {
+                if (response.success) {
+                    showAiResults('<?php esc_html_e('Schema Removed', 'smart-seo-fixer'); ?>',
+                        '<p>✅ ' + response.data.message + '</p>');
+                }
+            });
+        }, { danger: true });
     });
     
     // Add Location Schema toggle
@@ -1683,19 +1684,20 @@ jQuery(document).ready(function($) {
         if (window.ssfOutlineHtml && ssfInsertContent(window.ssfOutlineHtml)) {
             ssfButtonSuccess($btn, '<?php esc_html_e('Inserted!', 'smart-seo-fixer'); ?>');
         } else {
-            alert('<?php esc_html_e('Could not detect editor.', 'smart-seo-fixer'); ?>');
+            SSF.alert('<?php esc_html_e('Could not detect editor.', 'smart-seo-fixer'); ?>');
         }
     });
     
     // Replace content with outline
     $(document).on('click', '#ssf-replace-outline', function() {
-        if (!confirm('<?php esc_html_e('This will replace your current post content with the outline structure. Continue?', 'smart-seo-fixer'); ?>')) return;
         var $btn = $(this);
-        if (window.ssfOutlineHtml && ssfInsertContent(window.ssfOutlineHtml, true)) {
-            ssfButtonSuccess($btn, '<?php esc_html_e('Replaced!', 'smart-seo-fixer'); ?>');
-        } else {
-            alert('<?php esc_html_e('Could not detect editor.', 'smart-seo-fixer'); ?>');
-        }
+        SSF.confirm('<?php echo esc_js(__('This will replace your current post content with the outline structure. Continue?', 'smart-seo-fixer')); ?>', function() {
+            if (window.ssfOutlineHtml && ssfInsertContent(window.ssfOutlineHtml, true)) {
+                ssfButtonSuccess($btn, '<?php esc_html_e('Replaced!', 'smart-seo-fixer'); ?>');
+            } else {
+                SSF.alert('<?php esc_html_e('Could not detect editor.', 'smart-seo-fixer'); ?>');
+            }
+        });
     });
     
     // Set outline title as post title
@@ -1715,59 +1717,58 @@ jQuery(document).ready(function($) {
     
     // Apply improved content to the post editor
     $(document).on('click', '#ssf-apply-to-editor', function() {
+        var $btn = $(this);
         if (!window.ssfImprovedContent) {
-            alert('<?php esc_html_e('No improved content available.', 'smart-seo-fixer'); ?>');
+            SSF.alert('<?php esc_html_e('No improved content available.', 'smart-seo-fixer'); ?>');
             return;
         }
-        
-        if (!confirm('<?php esc_html_e('This will replace your current post content with the AI-improved version. Continue?', 'smart-seo-fixer'); ?>')) {
-            return;
-        }
-        
-        var content = window.ssfImprovedContent;
-        
-        // Convert plain text to paragraphs for the editor
-        var paragraphs = content.split(/\n\n+/).filter(function(p) { return p.trim().length > 0; });
-        var htmlContent = paragraphs.map(function(p) { return '<p>' + p.replace(/\n/g, '<br>') + '</p>'; }).join('\n');
-        
-        var applied = false;
-        
-        // Try TinyMCE (Classic Editor / Visual tab)
-        if (typeof tinymce !== 'undefined') {
-            var editor = tinymce.get('content');
-            if (editor && !editor.isHidden()) {
-                editor.setContent(htmlContent);
-                editor.undoManager.add();
-                applied = true;
+
+        SSF.confirm('<?php echo esc_js(__('This will replace your current post content with the AI-improved version. Continue?', 'smart-seo-fixer')); ?>', function() {
+            var content = window.ssfImprovedContent;
+
+            // Convert plain text to paragraphs for the editor
+            var paragraphs = content.split(/\n\n+/).filter(function(p) { return p.trim().length > 0; });
+            var htmlContent = paragraphs.map(function(p) { return '<p>' + p.replace(/\n/g, '<br>') + '</p>'; }).join('\n');
+
+            var applied = false;
+
+            // Try TinyMCE (Classic Editor / Visual tab)
+            if (typeof tinymce !== 'undefined') {
+                var editor = tinymce.get('content');
+                if (editor && !editor.isHidden()) {
+                    editor.setContent(htmlContent);
+                    editor.undoManager.add();
+                    applied = true;
+                }
             }
-        }
-        
-        // Try plain textarea (Text tab in Classic Editor)
-        if (!applied) {
-            var $textarea = $('#content');
-            if ($textarea.length) {
-                $textarea.val(content);
-                applied = true;
+
+            // Try plain textarea (Text tab in Classic Editor)
+            if (!applied) {
+                var $textarea = $('#content');
+                if ($textarea.length) {
+                    $textarea.val(content);
+                    applied = true;
+                }
             }
-        }
-        
-        // Try Gutenberg (Block Editor)
-        if (!applied && typeof wp !== 'undefined' && wp.data && wp.data.dispatch) {
-            try {
-                var blocks = wp.blocks.parse(htmlContent);
-                wp.data.dispatch('core/block-editor').resetBlocks(blocks);
-                applied = true;
-            } catch(e) {
-                console.error('Gutenberg apply failed:', e);
+
+            // Try Gutenberg (Block Editor)
+            if (!applied && typeof wp !== 'undefined' && wp.data && wp.data.dispatch) {
+                try {
+                    var blocks = wp.blocks.parse(htmlContent);
+                    wp.data.dispatch('core/block-editor').resetBlocks(blocks);
+                    applied = true;
+                } catch(e) {
+                    console.error('Gutenberg apply failed:', e);
+                }
             }
-        }
-        
-        if (applied) {
-            $(this).text('<?php esc_html_e('Applied!', 'smart-seo-fixer'); ?>').prop('disabled', true).css('background', '#46b450').css('color', '#fff');
-            window.ssfImprovedContent = null;
-        } else {
-            alert('<?php esc_html_e('Could not detect editor type. Please copy and paste manually.', 'smart-seo-fixer'); ?>');
-        }
+
+            if (applied) {
+                $btn.text('<?php esc_html_e('Applied!', 'smart-seo-fixer'); ?>').prop('disabled', true).css('background', '#46b450').css('color', '#fff');
+                window.ssfImprovedContent = null;
+            } else {
+                SSF.alert('<?php esc_html_e('Could not detect editor type. Please copy and paste manually.', 'smart-seo-fixer'); ?>');
+            }
+        });
     });
 });
 
@@ -1775,7 +1776,7 @@ function copyMapEmbed() {
     var textarea = document.querySelector('#ai-results-content textarea');
     textarea.select();
     document.execCommand('copy');
-    alert('<?php esc_html_e('Map embed code copied!', 'smart-seo-fixer'); ?>');
+    SSF.alert('<?php esc_html_e('Map embed code copied!', 'smart-seo-fixer'); ?>');
 }
 </script>
 

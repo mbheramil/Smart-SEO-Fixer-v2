@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Smart SEO Fixer
- * Version: 2.0.98
+ * Version: 2.0.99
  * Author: mbh
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Plugin constants
-define('SSF_VERSION', '2.0.98');
+define('SSF_VERSION', '2.0.99');
 define('SSF_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SSF_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SSF_PLUGIN_BASENAME', plugin_basename(__FILE__));

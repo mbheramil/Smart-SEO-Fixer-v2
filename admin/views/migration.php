@@ -579,7 +579,7 @@ jQuery(document).ready(function($) {
                     $('#migration-progress').hide();
                     $('#migration-form').show();
                     $('#run-migration-btn').show();
-                    alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Migration failed. Check console for details.', 'smart-seo-fixer'); ?>');
+                    SSF.alert(response.data && response.data.message ? response.data.message : '<?php esc_html_e('Migration failed. Check console for details.', 'smart-seo-fixer'); ?>');
                     return;
                 }
                 
@@ -621,7 +621,7 @@ jQuery(document).ready(function($) {
                 if (status === 'timeout') {
                     errorMsg = '<?php esc_html_e('Request timed out. The server may be slow.', 'smart-seo-fixer'); ?>';
                 }
-                alert(errorMsg + ' ' + error);
+                SSF.alert(errorMsg + ' ' + error);
             }
         });
     }

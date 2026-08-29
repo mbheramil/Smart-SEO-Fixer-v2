@@ -169,10 +169,11 @@ jQuery(document).ready(function($) {
     });
     
     $('#ssf-perf-clear').on('click', function() {
-        if (!confirm('Clear all performance history data?')) return;
-        $.post(ssfAdmin.ajax_url, { action: 'ssf_performance_clear', nonce: ssfAdmin.nonce }, function(r) {
-            if (r.success) location.reload();
-        });
+        SSF.confirm('Clear all performance history data?', function() {
+            $.post(ssfAdmin.ajax_url, { action: 'ssf_performance_clear', nonce: ssfAdmin.nonce }, function(r) {
+                if (r.success) location.reload();
+            });
+        }, { danger: true });
     });
 });
 </script>
