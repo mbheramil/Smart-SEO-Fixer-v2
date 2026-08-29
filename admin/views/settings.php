@@ -164,7 +164,15 @@ unset($available_post_types['attachment']);
                     <hr style="margin:8px 0 16px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
                         <h3 style="margin:0;"><?php esc_html_e('AWS Bedrock Configuration', 'smart-seo-fixer'); ?></h3>
-                        <button type="button" class="button ssf-test-btn" id="ssf-test-bedrock" data-provider="bedrock" <?php echo !$bedrock_configured ? 'disabled' : ''; ?>>
+                        <?php
+                        // Deliberately never disabled by $bedrock_configured: a "not
+                        // configured" verdict just means the broker declined last
+                        // time (often a stale/wrong cached IP check) — the whole
+                        // point of this button is to let the admin retry and see
+                        // the real, current reason instead of being locked out of
+                        // even trying.
+                        ?>
+                        <button type="button" class="button ssf-test-btn" id="ssf-test-bedrock" data-provider="bedrock">
                             <span class="dashicons dashicons-controls-play" style="margin-top:3px;"></span>
                             <?php esc_html_e('Test Connection', 'smart-seo-fixer'); ?>
                         </button>
@@ -1308,10 +1316,8 @@ jQuery(document).ready(function($) {
     });
 
     // ─── Enable/disable Test buttons when credentials change ───
-    $('#bedrock_access_key, #bedrock_secret_key').on('input', function() {
-        var ok = $('#bedrock_access_key').val().trim().length > 0 && $('#bedrock_secret_key').val().trim().length > 0;
-        $('#ssf-test-bedrock').prop('disabled', !ok);
-    });
+    // Bedrock's test button is intentionally never disabled here — blank
+    // fields still test a real path (the broker, or nothing), see class-ajax.php.
     $('#openai_api_key').on('input', function() {
         $('#ssf-test-openai').prop('disabled', !$(this).val().trim());
     });

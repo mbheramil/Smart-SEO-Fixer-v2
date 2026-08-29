@@ -687,7 +687,26 @@ class SSF_Ajax {
         }
 
         if (is_wp_error($result)) {
-            wp_send_json_error(['message' => $result->get_error_message()]);
+            $message = $result->get_error_message();
+            // This exact code means the broker declined this server AND it
+            // has no AWS keys of its own — the same "wrong outbound IP"
+            // situation the GSC/GA4 Connect buttons diagnose. Give the same
+            // actionable answer instead of a dead end.
+            if ($result->get_error_code() === 'no_credentials') {
+                $outbound_ip = $this->lookup_outbound_ip();
+                if ($outbound_ip) {
+                    // Plain text — the JS renders this message through an
+                    // escaping helper (shared with every other provider's
+                    // error text), so HTML markup here would show up as
+                    // literal angle brackets instead of being styled.
+                    $message .= ' ' . sprintf(
+                        /* translators: %s: this server's outbound IP address */
+                        __('This server\'s outbound IP is %s — send us that to allow it automatically, or enter your own AWS credentials above.', 'smart-seo-fixer'),
+                        $outbound_ip
+                    );
+                }
+            }
+            wp_send_json_error(['message' => $message]);
         }
 
         wp_send_json_success(['reply' => trim($result)]);
@@ -3112,14 +3131,7 @@ class SSF_Ajax {
      * both use the same broker and the same allow-list.
      */
     private function broker_connect_failure_response($status) {
-        $outbound_ip = '';
-        $ip_response = wp_remote_get('https://checkip.amazonaws.com', ['timeout' => 5]);
-        if (!is_wp_error($ip_response) && wp_remote_retrieve_response_code($ip_response) === 200) {
-            $candidate = trim(wp_remote_retrieve_body($ip_response));
-            if (filter_var($candidate, FILTER_VALIDATE_IP)) {
-                $outbound_ip = $candidate;
-            }
-        }
+        $outbound_ip = $this->lookup_outbound_ip();
 
         $message = $outbound_ip
             ? sprintf(
@@ -3134,6 +3146,20 @@ class SSF_Ajax {
             'message'     => $message,
             'outbound_ip' => $outbound_ip,
         ];
+    }
+
+    /**
+     * This server's real outbound IP, via an external echo service — the
+     * IP the broker's allow-list actually needs to recognize, which isn't
+     * always the same as a site's DNS-facing IP on shared hosting.
+     */
+    private function lookup_outbound_ip() {
+        $ip_response = wp_remote_get('https://checkip.amazonaws.com', ['timeout' => 5]);
+        if (is_wp_error($ip_response) || wp_remote_retrieve_response_code($ip_response) !== 200) {
+            return '';
+        }
+        $candidate = trim(wp_remote_retrieve_body($ip_response));
+        return filter_var($candidate, FILTER_VALIDATE_IP) ? $candidate : '';
     }
 
     /**
