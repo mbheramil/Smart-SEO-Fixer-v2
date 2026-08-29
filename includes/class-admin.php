@@ -12,6 +12,17 @@ if (!defined('ABSPATH')) {
 class SSF_Admin {
 
     /**
+     * Pages that render the full custom app shell (own sidebar/top bar,
+     * WordPress's own admin bar and left menu hidden) instead of sitting in
+     * normal wp-admin chrome. Deliberately an explicit, incrementally-grown
+     * list rather than "every plugin page" — a page not in this list still
+     * renders inside WordPress's normal nav, so there is always a way to
+     * navigate even mid-rollout. Values are the page slug used in
+     * admin.php?page=... .
+     */
+    const SHELL_PAGES = ['smart-seo-fixer'];
+
+    /**
      * Consistent, icon-free page header: title + version badge, optional
      * subtitle and right-aligned actions. Rolling out page by page — only
      * Dashboard and Settings use this so far; other views keep their own
@@ -36,6 +47,150 @@ class SSF_Admin {
             echo '<div class="ssf-page-header-actions">' . $actions_html . '</div>';
         }
         echo '</div>';
+    }
+
+    /**
+     * The sidebar's nav list for the custom app shell — same grouping
+     * already used as comments in add_admin_menu(), reused here as real
+     * structure instead of re-deciding how pages should be organized.
+     *
+     * @return array<int, array{slug:string, label:string, icon:string, group:string}>
+     */
+    private function shell_nav_items() {
+        return [
+            ['slug' => 'smart-seo-fixer',                      'label' => __('Dashboard', 'smart-seo-fixer'),           'icon' => 'home',     'group' => ''],
+
+            ['slug' => 'smart-seo-fixer-analyzer',              'label' => __('SEO Analyzer', 'smart-seo-fixer'),        'icon' => 'search',   'group' => __('Analyze & Fix', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-bulk-fix',               'label' => __('Bulk AI Fix', 'smart-seo-fixer'),         'icon' => 'bolt',     'group' => __('Analyze & Fix', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-posts',                  'label' => __('All Posts', 'smart-seo-fixer'),           'icon' => 'doc',      'group' => __('Analyze & Fix', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-content-suggestions',    'label' => __('Content Tips', 'smart-seo-fixer'),        'icon' => 'bulb',     'group' => __('Analyze & Fix', 'smart-seo-fixer')],
+
+            ['slug' => 'smart-seo-fixer-schema',                 'label' => __('Schema', 'smart-seo-fixer'),              'icon' => 'code',     'group' => __('Technical SEO', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-local',                  'label' => __('Local SEO', 'smart-seo-fixer'),           'icon' => 'pin',      'group' => __('Technical SEO', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-redirects',              'label' => __('Redirects', 'smart-seo-fixer'),           'icon' => 'shuffle',  'group' => __('Technical SEO', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-broken-links',           'label' => __('Broken Links', 'smart-seo-fixer'),        'icon' => 'unlink',   'group' => __('Technical SEO', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-404-monitor',             'label' => __('404 Monitor', 'smart-seo-fixer'),        'icon' => 'alert',    'group' => __('Technical SEO', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-robots',                  'label' => __('robots.txt', 'smart-seo-fixer'),         'icon' => 'grid',     'group' => __('Technical SEO', 'smart-seo-fixer')],
+
+            ['slug' => 'smart-seo-fixer-search-performance',     'label' => __('Search Performance', 'smart-seo-fixer'), 'icon' => 'chart',    'group' => __('Search & Social', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-gsc',                    'label' => __('Indexability', 'smart-seo-fixer'),       'icon' => 'flag',     'group' => __('Search & Social', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-social-preview',         'label' => __('Social Preview', 'smart-seo-fixer'),     'icon' => 'share',    'group' => __('Search & Social', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-keywords',                'label' => __('Keyword Tracker', 'smart-seo-fixer'),   'icon' => 'tag',      'group' => __('Search & Social', 'smart-seo-fixer')],
+
+            ['slug' => 'smart-seo-fixer-jobs',                   'label' => __('Background Jobs', 'smart-seo-fixer'),    'icon' => 'clock',    'group' => __('System', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-history',                'label' => __('Change History', 'smart-seo-fixer'),     'icon' => 'history',  'group' => __('System', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-migration',              'label' => __('Migration', 'smart-seo-fixer'),          'icon' => 'migrate',  'group' => __('System', 'smart-seo-fixer')],
+            ['slug' => 'smart-seo-fixer-debug-log',              'label' => __('Debug Log', 'smart-seo-fixer'),           'icon' => 'terminal', 'group' => __('System', 'smart-seo-fixer')],
+
+            ['slug' => 'smart-seo-fixer-settings',               'label' => __('Settings', 'smart-seo-fixer'),           'icon' => 'gear',     'group' => '__pinned'],
+        ];
+    }
+
+    /**
+     * Small monochrome line icons for the shell sidebar only — the content
+     * area stays icon-free. Deliberately simple/geometric rather than
+     * intricate: there is no local WordPress environment to visually proof
+     * these in a browser before shipping, so plain shapes are lower-risk
+     * than fine detail that could render oddly.
+     */
+    private function shell_nav_icon($key) {
+        $icons = [
+            'home'     => '<path d="M3 9.5 9 4l6 5.5"/><path d="M5 8v7a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V8"/>',
+            'search'   => '<circle cx="8" cy="8" r="5"/><line x1="15" y1="15" x2="11.5" y2="11.5"/>',
+            'bolt'     => '<path d="M10 2 4 10h4l-1 6 7-8h-4l1-6Z" fill="currentColor" stroke="none"/>',
+            'doc'      => '<rect x="4" y="2" width="10" height="14" rx="1"/><line x1="6.5" y1="6" x2="11.5" y2="6"/><line x1="6.5" y1="9" x2="11.5" y2="9"/><line x1="6.5" y1="12" x2="9.5" y2="12"/>',
+            'bulb'     => '<path d="M9 3a4 4 0 0 0-2 7.5V13h4v-2.5A4 4 0 0 0 9 3Z"/><line x1="7.2" y1="15.2" x2="10.8" y2="15.2"/>',
+            'code'     => '<path d="M7 4 3 9l4 5"/><path d="M11 4l4 5-4 5"/>',
+            'pin'      => '<path d="M9 16s5-4.5 5-8a5 5 0 1 0-10 0c0 3.5 5 8 5 8Z"/><circle cx="9" cy="8" r="1.8"/>',
+            'shuffle'  => '<path d="M3 6h10"/><path d="M11 3l3 3-3 3"/><path d="M15 12H5"/><path d="M7 9l-3 3 3 3"/>',
+            'unlink'   => '<rect x="2" y="7" width="7" height="4" rx="2"/><rect x="9" y="7" width="7" height="4" rx="2" stroke-dasharray="2 2"/>',
+            'alert'    => '<path d="M9 2 1 16h16L9 2Z"/><line x1="9" y1="7" x2="9" y2="11"/><circle cx="9" cy="13.5" r="0.8" fill="currentColor" stroke="none"/>',
+            'grid'     => '<rect x="2" y="2" width="14" height="14" rx="1.5"/><line x1="2" y1="7" x2="16" y2="7"/><line x1="7" y1="7" x2="7" y2="16"/>',
+            'chart'    => '<line x1="4" y1="14" x2="4" y2="9"/><line x1="9" y1="14" x2="9" y2="5"/><line x1="14" y1="14" x2="14" y2="11"/>',
+            'flag'     => '<path d="M4 16V3"/><path d="M4 3h9l-2.5 3.5L13 10H4"/>',
+            'share'    => '<circle cx="4" cy="9" r="2"/><circle cx="14" cy="4" r="2"/><circle cx="14" cy="14" r="2"/><line x1="5.7" y1="8" x2="12.3" y2="5"/><line x1="5.7" y1="10" x2="12.3" y2="13"/>',
+            'tag'      => '<path d="M9 3H4a1 1 0 0 0-1 1v5l8 8 6-6-8-8Z"/><circle cx="6.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>',
+            'clock'    => '<circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9"/><line x1="9" y1="9" x2="11.5" y2="10.5"/>',
+            'history'  => '<path d="M3 9a6 6 0 1 1 1.8 4.3"/><path d="M2 13v-3.2h3.2"/>',
+            'migrate'  => '<rect x="3" y="8" width="12" height="7" rx="1"/><line x1="9" y1="2" x2="9" y2="9"/><path d="M6 5l3-3 3 3"/>',
+            'terminal' => '<rect x="2" y="3" width="14" height="12" rx="1.5"/><path d="M5.5 7l2 2-2 2"/><line x1="9" y1="11" x2="12" y2="11"/>',
+            'gear'     => '<circle cx="9" cy="9" r="3"/><line x1="9" y1="2" x2="9" y2="4"/><line x1="9" y1="14" x2="9" y2="16"/><line x1="2" y1="9" x2="4" y2="9"/><line x1="14" y1="9" x2="16" y2="9"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="12.4" y1="12.4" x2="13.8" y2="13.8"/><line x1="4.2" y1="13.8" x2="5.6" y2="12.4"/><line x1="12.4" y1="5.6" x2="13.8" y2="4.2"/>',
+        ];
+        $inner = $icons[$key] ?? $icons['doc'];
+        return '<svg class="ssf-nav-icon" viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $inner . '</svg>';
+    }
+
+    /**
+     * Opens the custom app shell for a SHELL_PAGES page: sidebar (nav +
+     * escape hatch back to normal wp-admin) and the top bar. Pairs with
+     * render_shell_close(). Everything in between is the page's own content.
+     *
+     * @param string $active_slug This page's admin.php?page=... slug.
+     */
+    public function render_shell_open($active_slug) {
+        $items = $this->shell_nav_items();
+        $current_title = '';
+        foreach ($items as $item) {
+            if ($item['slug'] === $active_slug) {
+                $current_title = $item['label'];
+                break;
+            }
+        }
+
+        echo '<div class="ssf-app-shell">';
+        echo '<aside class="ssf-app-sidebar">';
+        echo '<div class="ssf-app-brand">' . esc_html__('Smart SEO Fixer', 'smart-seo-fixer') . '</div>';
+        echo '<nav class="ssf-app-nav">';
+
+        $open_group = null;
+        $pinned = [];
+        foreach ($items as $item) {
+            if ($item['group'] === '__pinned') {
+                $pinned[] = $item;
+                continue;
+            }
+            if ($item['group'] !== $open_group) {
+                $open_group = $item['group'];
+                if ($open_group !== '') {
+                    echo '<div class="ssf-app-nav-group">' . esc_html($open_group) . '</div>';
+                }
+            }
+            $this->render_shell_nav_item($item, $active_slug);
+        }
+        echo '</nav>';
+
+        if (!empty($pinned)) {
+            echo '<nav class="ssf-app-nav ssf-app-nav-pinned">';
+            foreach ($pinned as $item) {
+                $this->render_shell_nav_item($item, $active_slug);
+            }
+            echo '</nav>';
+        }
+
+        // Escape hatch — WordPress's own admin bar (and its way back to the
+        // normal dashboard) is hidden while the shell is active.
+        echo '<a class="ssf-app-exit" href="' . esc_url(admin_url()) . '">&larr; ' . esc_html__('WordPress Admin', 'smart-seo-fixer') . '</a>';
+        echo '</aside>';
+
+        echo '<div class="ssf-app-main">';
+        echo '<header class="ssf-app-topbar"><h1>' . esc_html($current_title) . '</h1></header>';
+        echo '<div class="ssf-app-content">';
+    }
+
+    private function render_shell_nav_item($item, $active_slug) {
+        $url = admin_url('admin.php?page=' . $item['slug']);
+        $classes = 'ssf-app-nav-item' . ($item['slug'] === $active_slug ? ' is-active' : '');
+        echo '<a href="' . esc_url($url) . '" class="' . esc_attr($classes) . '">'
+            . $this->shell_nav_icon($item['icon'])
+            . '<span>' . esc_html($item['label']) . '</span>'
+            . '</a>';
+    }
+
+    /** Closes what render_shell_open() opened. */
+    public function render_shell_close() {
+        echo '</div>'; // .ssf-app-content
+        echo '</div>'; // .ssf-app-main
+        echo '</div>'; // .ssf-app-shell
     }
 
     /**
@@ -77,6 +232,24 @@ class SSF_Admin {
         // Grouped admin menu (collapsible categories in sidebar)
         add_action('admin_head', [$this, 'admin_menu_group_css']);
         add_action('admin_footer', [$this, 'admin_menu_group_js']);
+
+        // Marks pages in SHELL_PAGES so the "hide WordPress chrome" CSS can
+        // scope to exactly those pages and no others — see filter_shell_body_class().
+        add_filter('admin_body_class', [$this, 'filter_shell_body_class']);
+    }
+
+    /**
+     * Appends a class WordPress pages in SHELL_PAGES so the custom app
+     * shell's CSS (which hides #wpadminbar/#adminmenumain and takes over
+     * the viewport) only ever applies there — everywhere else keeps
+     * WordPress's own navigation untouched.
+     */
+    public function filter_shell_body_class($classes) {
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+        if (in_array($page, self::SHELL_PAGES, true)) {
+            $classes .= ' ssf-shell-active';
+        }
+        return $classes;
     }
     
     /**
@@ -454,7 +627,9 @@ class SSF_Admin {
      * Render dashboard
      */
     public function render_dashboard() {
+        $this->render_shell_open('smart-seo-fixer');
         include SSF_PLUGIN_DIR . 'admin/views/dashboard.php';
+        $this->render_shell_close();
     }
     
     /**

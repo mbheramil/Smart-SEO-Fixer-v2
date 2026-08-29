@@ -8,27 +8,55 @@ if (!defined('ABSPATH')) {
     exit;
 }
 ?>
-<div class="wrap ssf-wrap">
-    <?php SSF_Admin::page_header(__('Smart SEO Fixer', 'smart-seo-fixer')); ?>
-    
-    <?php if (class_exists('SSF_AI') && !SSF_AI::is_configured()): ?>
-    <div class="ssf-notice ssf-notice-warning">
-        <p>
-            <strong><?php esc_html_e('AWS Bedrock Required:', 'smart-seo-fixer'); ?></strong>
-            <?php esc_html_e('Add your AWS Bedrock credentials in', 'smart-seo-fixer'); ?>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-settings')); ?>">
-                <?php esc_html_e('Settings', 'smart-seo-fixer'); ?>
-            </a>
-            <?php esc_html_e('to enable AI-powered features.', 'smart-seo-fixer'); ?>
-        </p>
-    </div>
-    <?php endif; ?>
-    
-    <div class="ssf-dashboard" id="ssf-dashboard">
+<?php if (class_exists('SSF_AI') && !SSF_AI::is_configured()): ?>
+<div class="ssf-notice ssf-notice-warning" style="margin-bottom:28px;">
+    <p>
+        <strong><?php esc_html_e('AWS Bedrock Required:', 'smart-seo-fixer'); ?></strong>
+        <?php esc_html_e('Add your AWS Bedrock credentials in', 'smart-seo-fixer'); ?>
+        <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-settings')); ?>">
+            <?php esc_html_e('Settings', 'smart-seo-fixer'); ?>
+        </a>
+        <?php esc_html_e('to enable AI-powered features.', 'smart-seo-fixer'); ?>
+    </p>
+</div>
+<?php endif; ?>
 
-        <!-- SEO Health Card -->
-        <div class="ssf-health-card">
-            <div class="ssf-health-score">
+<div id="ssf-dashboard">
+
+    <!-- Missing SEO Alert Banner (conditional, populated by JS) -->
+    <div class="ssf-missing-seo-banner" id="missing-seo-banner" style="display:none;">
+        <div class="ssf-banner-content">
+            <strong id="missing-banner-title"><?php esc_html_e('Posts missing AI-generated SEO', 'smart-seo-fixer'); ?></strong>
+            <p id="missing-banner-desc"></p>
+        </div>
+        <div class="ssf-banner-actions">
+            <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-bulk-fix&auto=missing')); ?>" class="button button-primary">
+                <?php esc_html_e('Fix Now', 'smart-seo-fixer'); ?>
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="ssf-quick-actions">
+        <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-analyzer')); ?>" class="ssf-quick-btn ssf-quick-analyze">
+            <?php esc_html_e('Analyze Posts', 'smart-seo-fixer'); ?>
+        </a>
+        <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-bulk-fix')); ?>" class="ssf-quick-btn ssf-quick-fix">
+            <?php esc_html_e('Bulk AI Fix', 'smart-seo-fixer'); ?>
+        </a>
+        <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-posts')); ?>" class="ssf-quick-btn ssf-quick-posts">
+            <?php esc_html_e('All Posts', 'smart-seo-fixer'); ?>
+        </a>
+    </div>
+
+    <!-- Borderless widget grid: SEO Health / Needs Attention / Recently Analyzed -->
+    <div class="ssf-widget-grid" style="margin-top:32px;">
+
+        <div class="ssf-widget">
+            <div class="ssf-widget-header">
+                <h3><?php esc_html_e('SEO Health', 'smart-seo-fixer'); ?></h3>
+            </div>
+            <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
                 <div class="ssf-score-ring" id="score-ring">
                     <svg viewBox="0 0 120 120">
                         <circle class="ssf-ring-bg" cx="60" cy="60" r="52" />
@@ -39,99 +67,69 @@ if (!defined('ABSPATH')) {
                         <span class="ssf-ring-label"><?php esc_html_e('SEO Score', 'smart-seo-fixer'); ?></span>
                     </div>
                 </div>
-            </div>
-            <div class="ssf-health-details">
-                <div class="ssf-health-bar-wrap">
-                    <div class="ssf-health-bar">
-                        <div class="ssf-bar-good" id="bar-good" style="width:0%"></div>
-                        <div class="ssf-bar-ok" id="bar-ok" style="width:0%"></div>
-                        <div class="ssf-bar-poor" id="bar-poor" style="width:0%"></div>
+                <div style="flex:1; min-width:160px;">
+                    <div class="ssf-health-bar-wrap">
+                        <div class="ssf-health-bar">
+                            <div class="ssf-bar-good" id="bar-good" style="width:0%"></div>
+                            <div class="ssf-bar-ok" id="bar-ok" style="width:0%"></div>
+                            <div class="ssf-bar-poor" id="bar-poor" style="width:0%"></div>
+                        </div>
                     </div>
+                    <div class="ssf-health-metrics">
+                        <div class="ssf-metric ssf-metric-good">
+                            <span class="ssf-metric-dot"></span>
+                            <span class="ssf-metric-value" id="stat-good">&mdash;</span>
+                            <span class="ssf-metric-label"><?php esc_html_e('Good', 'smart-seo-fixer'); ?></span>
+                        </div>
+                        <div class="ssf-metric ssf-metric-ok">
+                            <span class="ssf-metric-dot"></span>
+                            <span class="ssf-metric-value" id="stat-ok">&mdash;</span>
+                            <span class="ssf-metric-label"><?php esc_html_e('OK', 'smart-seo-fixer'); ?></span>
+                        </div>
+                        <div class="ssf-metric ssf-metric-poor">
+                            <span class="ssf-metric-dot"></span>
+                            <span class="ssf-metric-value" id="stat-poor">&mdash;</span>
+                            <span class="ssf-metric-label"><?php esc_html_e('Needs Work', 'smart-seo-fixer'); ?></span>
+                        </div>
+                        <div class="ssf-metric ssf-metric-unanalyzed">
+                            <span class="ssf-metric-dot"></span>
+                            <span class="ssf-metric-value" id="stat-unanalyzed">&mdash;</span>
+                            <span class="ssf-metric-label"><?php esc_html_e('Unanalyzed', 'smart-seo-fixer'); ?></span>
+                        </div>
+                    </div>
+                    <!-- Hidden elements to keep JS compatibility -->
+                    <span id="stat-missing-titles" style="display:none;">&mdash;</span>
+                    <span id="stat-card-missing" style="display:none;"></span>
                 </div>
-                <div class="ssf-health-metrics">
-                    <div class="ssf-metric ssf-metric-good">
-                        <span class="ssf-metric-dot"></span>
-                        <span class="ssf-metric-value" id="stat-good">&mdash;</span>
-                        <span class="ssf-metric-label"><?php esc_html_e('Good', 'smart-seo-fixer'); ?></span>
-                    </div>
-                    <div class="ssf-metric ssf-metric-ok">
-                        <span class="ssf-metric-dot"></span>
-                        <span class="ssf-metric-value" id="stat-ok">&mdash;</span>
-                        <span class="ssf-metric-label"><?php esc_html_e('OK', 'smart-seo-fixer'); ?></span>
-                    </div>
-                    <div class="ssf-metric ssf-metric-poor">
-                        <span class="ssf-metric-dot"></span>
-                        <span class="ssf-metric-value" id="stat-poor">&mdash;</span>
-                        <span class="ssf-metric-label"><?php esc_html_e('Needs Work', 'smart-seo-fixer'); ?></span>
-                    </div>
-                    <div class="ssf-metric ssf-metric-unanalyzed">
-                        <span class="ssf-metric-dot"></span>
-                        <span class="ssf-metric-value" id="stat-unanalyzed">&mdash;</span>
-                        <span class="ssf-metric-label"><?php esc_html_e('Unanalyzed', 'smart-seo-fixer'); ?></span>
-                    </div>
-                </div>
-                <!-- Hidden elements to keep JS compatibility -->
-                <span id="stat-missing-titles" style="display:none;">&mdash;</span>
-                <span id="stat-card-missing" style="display:none;"></span>
             </div>
         </div>
 
-        <!-- Missing SEO Alert Banner (conditional, populated by JS) -->
-        <div class="ssf-missing-seo-banner" id="missing-seo-banner" style="display:none;">
-            <div class="ssf-banner-content">
-                <strong id="missing-banner-title"><?php esc_html_e('Posts missing AI-generated SEO', 'smart-seo-fixer'); ?></strong>
-                <p id="missing-banner-desc"></p>
-            </div>
-            <div class="ssf-banner-actions">
-                <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-bulk-fix&auto=missing')); ?>" class="button button-primary">
-                    <?php esc_html_e('Fix Now', 'smart-seo-fixer'); ?>
+        <div class="ssf-widget">
+            <div class="ssf-widget-header">
+                <h3><?php esc_html_e('Needs Attention', 'smart-seo-fixer'); ?></h3>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-analyzer&score_filter=poor')); ?>" class="ssf-link">
+                    <?php esc_html_e('View All', 'smart-seo-fixer'); ?>
                 </a>
             </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="ssf-quick-actions">
-            <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-analyzer')); ?>" class="ssf-quick-btn ssf-quick-analyze">
-                <?php esc_html_e('Analyze Posts', 'smart-seo-fixer'); ?>
-            </a>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-bulk-fix')); ?>" class="ssf-quick-btn ssf-quick-fix">
-                <?php esc_html_e('Bulk AI Fix', 'smart-seo-fixer'); ?>
-            </a>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-posts')); ?>" class="ssf-quick-btn ssf-quick-posts">
-                <?php esc_html_e('All Posts', 'smart-seo-fixer'); ?>
-            </a>
-        </div>
-
-        <!-- Posts: Needs Attention + Recently Analyzed -->
-        <div class="ssf-content-grid">
-            <div class="ssf-card ssf-card-attention">
-                <div class="ssf-card-header">
-                    <h2><?php esc_html_e('Needs Attention', 'smart-seo-fixer'); ?></h2>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=smart-seo-fixer-analyzer&score_filter=poor')); ?>" class="ssf-link">
-                        <?php esc_html_e('View All', 'smart-seo-fixer'); ?>
-                    </a>
-                </div>
-                <div class="ssf-card-body">
-                    <div class="ssf-post-list" id="needs-attention-list">
-                        <?php for ($i = 0; $i < 3; $i++): ?>
-                            <div class="ssf-skeleton ssf-skeleton-row"></div>
-                        <?php endfor; ?>
-                    </div>
-                </div>
-            </div>
-            <div class="ssf-card ssf-card-recent">
-                <div class="ssf-card-header">
-                    <h2><?php esc_html_e('Recently Analyzed', 'smart-seo-fixer'); ?></h2>
-                </div>
-                <div class="ssf-card-body">
-                    <div class="ssf-post-list" id="recent-list">
-                        <?php for ($i = 0; $i < 3; $i++): ?>
-                            <div class="ssf-skeleton ssf-skeleton-row"></div>
-                        <?php endfor; ?>
-                    </div>
-                </div>
+            <div class="ssf-post-list" id="needs-attention-list">
+                <?php for ($i = 0; $i < 3; $i++): ?>
+                    <div class="ssf-skeleton ssf-skeleton-row"></div>
+                <?php endfor; ?>
             </div>
         </div>
+
+        <div class="ssf-widget">
+            <div class="ssf-widget-header">
+                <h3><?php esc_html_e('Recently Analyzed', 'smart-seo-fixer'); ?></h3>
+            </div>
+            <div class="ssf-post-list" id="recent-list">
+                <?php for ($i = 0; $i < 3; $i++): ?>
+                    <div class="ssf-skeleton ssf-skeleton-row"></div>
+                <?php endfor; ?>
+            </div>
+        </div>
+
+    </div>
 
         <!-- Tools — Organized by Category -->
         <div class="ssf-tools-section">
@@ -196,26 +194,10 @@ if (!defined('ABSPATH')) {
             </div>
         </div>
 
-    </div>
 </div>
 
 <style>
-/* ── SEO Health Card ─────────────────────────────── */
-.ssf-health-card {
-    display: flex;
-    align-items: center;
-    gap: 40px;
-    background: #fff;
-    border: 1px solid var(--ssf-gray-200);
-    border-radius: var(--ssf-radius);
-    padding: 28px 32px;
-    margin-bottom: 20px;
-}
-
-.ssf-health-score {
-    flex-shrink: 0;
-}
-
+/* ── SEO Health widget ───────────────────────────── */
 .ssf-score-ring {
     position: relative;
     width: 120px;
@@ -372,13 +354,11 @@ if (!defined('ABSPATH')) {
     color: var(--ssf-gray-900);
 }
 
-/* ── Tools Section ───────────────────────────────── */
+/* ── Tools Section — borderless, matches the widget grid above ────── */
 .ssf-tools-section {
-    background: #fff;
-    border: 1px solid var(--ssf-gray-200);
-    border-radius: var(--ssf-radius);
-    padding: 24px 28px;
-    margin-top: 24px;
+    margin-top: 44px;
+    padding-top: 24px;
+    border-top: 1px solid var(--ssf-gray-100);
 }
 
 .ssf-tools-heading {

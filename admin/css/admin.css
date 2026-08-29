@@ -2026,3 +2026,198 @@ body.ssf-pdf-exporting .ssf-report {
     gap: 12px;
 }
 
+/* ==========================================================================
+   App shell — full custom takeover (Stripe-reference), scoped strictly to
+   body.ssf-shell-active so pages not yet migrated keep WordPress's own
+   navigation intact. See SSF_Admin::SHELL_PAGES / render_shell_open().
+   ========================================================================== */
+
+body.ssf-shell-active #wpadminbar,
+body.ssf-shell-active #adminmenumain,
+body.ssf-shell-active #adminmenuback,
+body.ssf-shell-active #adminmenuwrap,
+body.ssf-shell-active #wpfooter {
+    display: none !important;
+}
+
+body.ssf-shell-active html.wp-toolbar {
+    padding-top: 0 !important;
+}
+
+body.ssf-shell-active #wpcontent,
+body.ssf-shell-active #wpbody,
+body.ssf-shell-active #wpbody-content {
+    margin-left: 0 !important;
+    padding: 0 !important;
+}
+
+.ssf-app-shell {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    background: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ssf-gray-900);
+    -webkit-font-smoothing: antialiased;
+}
+
+.ssf-app-sidebar {
+    width: 232px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--ssf-gray-200);
+    padding: 20px 12px 16px;
+    overflow-y: auto;
+}
+
+.ssf-app-brand {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    padding: 0 10px 18px;
+}
+
+.ssf-app-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.ssf-app-nav-group {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ssf-gray-400);
+    padding: 14px 10px 4px;
+}
+
+.ssf-app-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: var(--ssf-radius-sm);
+    color: var(--ssf-gray-600);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 500;
+    transition: background-color 0.12s var(--ssf-ease), color 0.12s var(--ssf-ease);
+}
+
+.ssf-app-nav-item:hover {
+    background: var(--ssf-gray-50);
+    color: var(--ssf-gray-900);
+}
+
+.ssf-app-nav-item.is-active {
+    background: var(--ssf-primary-soft);
+    color: var(--ssf-primary);
+    font-weight: 600;
+}
+
+.ssf-app-nav-item .ssf-nav-icon {
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.ssf-app-nav-item.is-active .ssf-nav-icon {
+    opacity: 1;
+}
+
+.ssf-app-nav-pinned {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--ssf-gray-100);
+}
+
+.ssf-app-exit {
+    display: block;
+    margin-top: 10px;
+    padding-top: 14px;
+    border-top: 1px solid var(--ssf-gray-100);
+    font-size: 12.5px;
+    color: var(--ssf-gray-400);
+    text-decoration: none;
+}
+
+.ssf-app-exit:hover {
+    color: var(--ssf-gray-700);
+}
+
+.ssf-app-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ssf-app-topbar {
+    flex-shrink: 0;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--ssf-gray-100);
+}
+
+.ssf-app-topbar h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ssf-gray-900);
+}
+
+.ssf-app-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 32px 60px;
+    animation: ssf-page-in 0.3s var(--ssf-ease) both;
+}
+
+/* Borderless widgets — whitespace-only separation, no card box, matching
+   the Stripe reference exactly (unlike .ssf-card elsewhere in the plugin,
+   which keeps a thin border). */
+.ssf-widget-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 36px;
+}
+
+.ssf-widget {
+    min-width: 0;
+}
+
+.ssf-widget-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.ssf-widget-header h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ssf-gray-500);
+}
+
+@media (max-width: 900px) {
+    .ssf-app-sidebar {
+        width: 72px;
+        padding: 16px 8px;
+    }
+    .ssf-app-brand,
+    .ssf-app-nav-group,
+    .ssf-app-nav-item span {
+        display: none;
+    }
+    .ssf-app-nav-item {
+        justify-content: center;
+    }
+    .ssf-app-exit {
+        font-size: 0;
+    }
+}
+
