@@ -1364,11 +1364,13 @@ jQuery(document).ready(function($) {
         }, function(r) {
             var data = (r && r.data) || {};
             if (data.status === 'authorized') {
-                $status.text(data.message || '<?php echo esc_js(__('Connected!', 'smart-seo-fixer')); ?>');
+                $status.html(data.message || '<?php echo esc_js(__('Connected!', 'smart-seo-fixer')); ?>');
                 location.reload();
                 return;
             }
-            $status.text(data.message || '<?php echo esc_js(__('Could not connect. Try again in a moment.', 'smart-seo-fixer')); ?>');
+            // data.message may contain a <code> tag around an IP address — safe,
+            // server-escaped, and only ever built from our own translated strings.
+            $status.html(data.message || '<?php echo esc_js(__('Could not connect. Try again in a moment.', 'smart-seo-fixer')); ?>');
             $btn.prop('disabled', false);
             if (data.status && data.status !== 'needs_setup') {
                 document.getElementById('ssf-gsc-manual-fallback').open = true;

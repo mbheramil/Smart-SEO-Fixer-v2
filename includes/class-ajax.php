@@ -3099,9 +3099,30 @@ class SSF_Ajax {
             ]);
         }
 
+        // The broker refused this server outright — most likely its outbound
+        // IP isn't on the allow-list. Look it up so the admin has something
+        // actionable to send us instead of a dead end.
+        $outbound_ip = '';
+        $ip_response = wp_remote_get('https://checkip.amazonaws.com', ['timeout' => 5]);
+        if (!is_wp_error($ip_response) && wp_remote_retrieve_response_code($ip_response) === 200) {
+            $candidate = trim(wp_remote_retrieve_body($ip_response));
+            if (filter_var($candidate, FILTER_VALIDATE_IP)) {
+                $outbound_ip = $candidate;
+            }
+        }
+
+        $message = $outbound_ip
+            ? sprintf(
+                /* translators: %s: this server's outbound IP address */
+                __('This site could not connect automatically. Its outbound IP is %s — send us that to allow this server, or set up your own Google credentials below in the meantime.', 'smart-seo-fixer'),
+                '<code>' . esc_html($outbound_ip) . '</code>'
+            )
+            : __('This site could not connect automatically. Set up your own Google credentials below, or ask us to enable automatic access for this server.', 'smart-seo-fixer');
+
         wp_send_json_success([
-            'status'  => $status,
-            'message' => __('This site could not connect automatically. Set up your own Google credentials below, or ask us to enable automatic access for this server.', 'smart-seo-fixer'),
+            'status'      => $status,
+            'message'     => $message,
+            'outbound_ip' => $outbound_ip,
         ]);
     }
 
