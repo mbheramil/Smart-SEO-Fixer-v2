@@ -249,6 +249,10 @@ class SSF_Admin {
         // Marks pages in SHELL_PAGES so the app shell's CSS only ever
         // applies there — see filter_shell_body_class().
         add_filter('admin_body_class', [$this, 'filter_shell_body_class']);
+
+        // Hides WordPress's own duplicate "Smart SEO" submenu list (CSS
+        // only — see hide_native_submenu()).
+        add_action('admin_head', [$this, 'hide_native_submenu']);
     }
 
     /**
@@ -348,13 +352,17 @@ class SSF_Admin {
             80
         );
 
-        // Every page below is still registered as a real WordPress submenu
-        // (so capability checks, get_current_screen(), and the pages
-        // themselves keep working exactly as before) but immediately
-        // removed from display — the app shell's own sidebar is the real
-        // navigation now, so a second, duplicate list under "Smart SEO" in
-        // WordPress's own menu would just be clutter. The top-level "Smart
-        // SEO" item alone remains, linking straight to the Dashboard.
+        // Every page below is a real WordPress submenu — the app shell's
+        // own sidebar is the real navigation now, so the duplicate list is
+        // hidden from WordPress's own menu via CSS in hide_native_submenu()
+        // rather than via remove_submenu_page(). remove_submenu_page() does
+        // more than hide the <li>: WordPress's own page loader resolves
+        // admin.php?page=X by searching the very same $submenu array for a
+        // matching, capability-passing entry, so removing an entry there
+        // makes that page 404 into "Sorry, you are not allowed to access
+        // this page" for everyone, permissions notwithstanding. CSS hides
+        // the rendered menu only; the PHP-side $submenu array — and
+        // therefore direct page access — stays intact.
         $pages = [
             ['smart-seo-fixer',                   'Dashboard',            'Dashboard',            'edit_posts',     'render_dashboard'],
             ['smart-seo-fixer-analyzer',           'SEO Analyzer',         'SEO Analyzer',         'edit_posts',     'render_analyzer'],
@@ -381,8 +389,17 @@ class SSF_Admin {
 
         foreach ($pages as [$slug, $page_title, $menu_title, $cap, $callback]) {
             add_submenu_page('smart-seo-fixer', __($page_title, 'smart-seo-fixer'), __($menu_title, 'smart-seo-fixer'), $cap, $slug, [$this, $callback]);
-            remove_submenu_page('smart-seo-fixer', $slug);
         }
+    }
+
+    /**
+     * Hides WordPress's own "Smart SEO" submenu list purely via CSS — see
+     * the comment in add_admin_menu() for why this has to be CSS and not
+     * remove_submenu_page(). The top-level "Smart SEO" link itself (and its
+     * flyout arrow when the WP menu is collapsed) stays untouched.
+     */
+    public function hide_native_submenu() {
+        echo '<style>#adminmenu li.menu-top > a[href="admin.php?page=smart-seo-fixer"] + .wp-submenu { display: none !important; }</style>';
     }
     
     /**
