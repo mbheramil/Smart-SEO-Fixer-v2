@@ -150,6 +150,20 @@ class SSF_GSC_Client {
     }
 
     /**
+     * Drop the cached verdict and probe the broker again right now.
+     *
+     * Used by the "Connect to Google" button — a site that only just picked
+     * up an IP-allow-list change, or that was checked before the broker had
+     * its own Google connection, would otherwise be stuck showing a stale
+     * refusal for up to 12 hours.
+     */
+    public function refresh_broker_status() {
+        delete_transient(self::BROKER_STATUS_TRANSIENT);
+        $this->broker_property_cache = null;
+        return $this->broker_status();
+    }
+
+    /**
      * One request to the broker.
      *
      * @return array|WP_Error|null

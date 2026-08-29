@@ -511,83 +511,102 @@ unset($available_post_types['attachment']);
                     <?php if ($gsc_broker_needs_setup): ?>
                         <div class="notice notice-warning inline" style="margin: 0 0 16px;">
                             <p>
-                                <?php esc_html_e('This site is cleared to use the shared Search Console connection, but that connection needs to be re-authorized before it can serve data. Until then, you can connect this site individually below.', 'smart-seo-fixer'); ?>
+                                <?php esc_html_e('This site is cleared to use the shared Search Console connection, but that connection needs to be re-authorized before it can serve data. Try Connect again shortly, or connect this site individually below in the meantime.', 'smart-seo-fixer'); ?>
                             </p>
                         </div>
                     <?php endif; ?>
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <label for="gsc_client_id"><?php esc_html_e('Client ID', 'smart-seo-fixer'); ?></label>
-                            </th>
-                            <td>
-                                <input type="text" 
-                                       name="gsc_client_id" 
-                                       id="gsc_client_id" 
-                                       value="<?php echo esc_attr($gsc_client_id); ?>" 
-                                       class="regular-text"
-                                       placeholder="xxxxxx.apps.googleusercontent.com">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">
-                                <label for="gsc_client_secret"><?php esc_html_e('Client Secret', 'smart-seo-fixer'); ?></label>
-                            </th>
-                            <td>
-                                <input type="password" 
-                                       name="gsc_client_secret" 
-                                       id="gsc_client_secret" 
-                                       value="<?php echo esc_attr($gsc_client_secret); ?>" 
-                                       class="regular-text"
-                                       autocomplete="off">
-                            </td>
-                        </tr>
-                    </table>
-                    
-                    <?php if (!empty($gsc_client_id) && !empty($gsc_client_secret)): ?>
-                        <p>
-                            <a href="<?php echo esc_url($gsc_client->get_auth_url()); ?>" class="button button-primary button-large">
-                                <span class="dashicons dashicons-google" style="vertical-align: text-bottom;"></span>
-                                <?php esc_html_e('Connect Google Search Console', 'smart-seo-fixer'); ?>
-                            </a>
-                        </p>
-                    <?php else: ?>
-                        <p class="description">
-                            <?php esc_html_e('Enter your Client ID and Secret, save settings, then click Connect.', 'smart-seo-fixer'); ?>
-                        </p>
-                    <?php endif; ?>
-                    
-                    <div style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
-                        <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
-                            <span class="dashicons dashicons-info" style="font-size: 16px;"></span>
-                            <?php esc_html_e('Already set this up on another site?', 'smart-seo-fixer'); ?>
-                        </p>
-                        <p style="margin: 0 0 10px; color: #1e3a5f; font-size: 13px;">
-                            <?php printf(
-                                /* translators: %s: this site's authorized redirect URI */
-                                __('You do not need a new credential per site. Paste the <strong>same</strong> Client ID and Secret you already use, then add just one more Authorized redirect URI to that existing OAuth client: %s', 'smart-seo-fixer'),
-                                '<br><code>' . esc_html(admin_url('admin.php?page=smart-seo-fixer-settings')) . '</code>'
-                            ); ?>
-                        </p>
-                        <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
-                            <?php esc_html_e('Setting it up for the first time:', 'smart-seo-fixer'); ?>
-                        </p>
-                        <ol style="margin: 0; padding-left: 20px; color: #1e3a5f; font-size: 13px;">
-                            <li><?php printf(
-                                __('Go to %s', 'smart-seo-fixer'),
-                                '<a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>'
-                            ); ?></li>
-                            <li><?php esc_html_e('Create a project (or select existing)', 'smart-seo-fixer'); ?></li>
-                            <li><?php esc_html_e('Enable "Google Search Console API"', 'smart-seo-fixer'); ?></li>
-                            <li><?php esc_html_e('Create OAuth 2.0 credentials (Web application type)', 'smart-seo-fixer'); ?></li>
-                            <li><?php printf(
-                                __('Add this as Authorized redirect URI: %s', 'smart-seo-fixer'),
-                                '<code>' . esc_html(admin_url('admin.php?page=smart-seo-fixer-settings')) . '</code>'
-                            ); ?></li>
-                            <li><?php esc_html_e('Copy the Client ID and Client Secret here', 'smart-seo-fixer'); ?></li>
-                            <li><?php esc_html_e('Set the OAuth consent screen to "In production" — while it is in "Testing", Google expires the connection every 7 days and the site silently disconnects', 'smart-seo-fixer'); ?></li>
-                        </ol>
-                    </div>
+
+                    <p>
+                        <button type="button" class="button button-primary button-large" id="ssf-gsc-broker-connect">
+                            <span class="dashicons dashicons-google" style="vertical-align: text-bottom;"></span>
+                            <?php esc_html_e('Connect to Google', 'smart-seo-fixer'); ?>
+                        </button>
+                        <span id="ssf-gsc-broker-connect-status" style="margin-left: 8px; color: #666;"></span>
+                    </p>
+                    <p class="description" style="margin: 0 0 16px;">
+                        <?php esc_html_e('No Google Cloud Console setup needed — click Connect and this site checks in with the shared Google connection automatically.', 'smart-seo-fixer'); ?>
+                    </p>
+
+                    <details id="ssf-gsc-manual-fallback"<?php echo (!empty($gsc_client_id) && !empty($gsc_client_secret)) ? ' open' : ''; ?>>
+                        <summary style="cursor: pointer; color: #555; font-size: 13px;">
+                            <?php esc_html_e('Advanced: use my own Google credentials instead', 'smart-seo-fixer'); ?>
+                        </summary>
+                        <div style="margin-top: 12px;">
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row">
+                                        <label for="gsc_client_id"><?php esc_html_e('Client ID', 'smart-seo-fixer'); ?></label>
+                                    </th>
+                                    <td>
+                                        <input type="text"
+                                               name="gsc_client_id"
+                                               id="gsc_client_id"
+                                               value="<?php echo esc_attr($gsc_client_id); ?>"
+                                               class="regular-text"
+                                               placeholder="xxxxxx.apps.googleusercontent.com">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">
+                                        <label for="gsc_client_secret"><?php esc_html_e('Client Secret', 'smart-seo-fixer'); ?></label>
+                                    </th>
+                                    <td>
+                                        <input type="password"
+                                               name="gsc_client_secret"
+                                               id="gsc_client_secret"
+                                               value="<?php echo esc_attr($gsc_client_secret); ?>"
+                                               class="regular-text"
+                                               autocomplete="off">
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <?php if (!empty($gsc_client_id) && !empty($gsc_client_secret)): ?>
+                                <p>
+                                    <a href="<?php echo esc_url($gsc_client->get_auth_url()); ?>" class="button button-primary">
+                                        <span class="dashicons dashicons-google" style="vertical-align: text-bottom;"></span>
+                                        <?php esc_html_e('Connect Google Search Console', 'smart-seo-fixer'); ?>
+                                    </a>
+                                </p>
+                            <?php else: ?>
+                                <p class="description">
+                                    <?php esc_html_e('Enter your Client ID and Secret, save settings, then click Connect.', 'smart-seo-fixer'); ?>
+                                </p>
+                            <?php endif; ?>
+
+                            <div style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
+                                <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
+                                    <span class="dashicons dashicons-info" style="font-size: 16px;"></span>
+                                    <?php esc_html_e('Already set this up on another site?', 'smart-seo-fixer'); ?>
+                                </p>
+                                <p style="margin: 0 0 10px; color: #1e3a5f; font-size: 13px;">
+                                    <?php printf(
+                                        /* translators: %s: this site's authorized redirect URI */
+                                        __('You do not need a new credential per site. Paste the <strong>same</strong> Client ID and Secret you already use, then add just one more Authorized redirect URI to that existing OAuth client: %s', 'smart-seo-fixer'),
+                                        '<br><code>' . esc_html(admin_url('admin.php?page=smart-seo-fixer-settings')) . '</code>'
+                                    ); ?>
+                                </p>
+                                <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
+                                    <?php esc_html_e('Setting it up for the first time:', 'smart-seo-fixer'); ?>
+                                </p>
+                                <ol style="margin: 0; padding-left: 20px; color: #1e3a5f; font-size: 13px;">
+                                    <li><?php printf(
+                                        __('Go to %s', 'smart-seo-fixer'),
+                                        '<a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>'
+                                    ); ?></li>
+                                    <li><?php esc_html_e('Create a project (or select existing)', 'smart-seo-fixer'); ?></li>
+                                    <li><?php esc_html_e('Enable "Google Search Console API"', 'smart-seo-fixer'); ?></li>
+                                    <li><?php esc_html_e('Create OAuth 2.0 credentials (Web application type)', 'smart-seo-fixer'); ?></li>
+                                    <li><?php printf(
+                                        __('Add this as Authorized redirect URI: %s', 'smart-seo-fixer'),
+                                        '<code>' . esc_html(admin_url('admin.php?page=smart-seo-fixer-settings')) . '</code>'
+                                    ); ?></li>
+                                    <li><?php esc_html_e('Copy the Client ID and Client Secret here', 'smart-seo-fixer'); ?></li>
+                                    <li><?php esc_html_e('Set the OAuth consent screen to "In production" — while it is in "Testing", Google expires the connection every 7 days and the site silently disconnects', 'smart-seo-fixer'); ?></li>
+                                </ol>
+                            </div>
+                        </div>
+                    </details>
                 <?php endif; ?>
             </div>
         </div>
@@ -1335,6 +1354,31 @@ jQuery(document).ready(function($) {
         $('#homepage-desc-count').text($(this).val().length);
     });
     
+    // GSC Connect via the shared broker — no Google Cloud Console needed
+    $('#ssf-gsc-broker-connect').on('click', function() {
+        var $btn = $(this).prop('disabled', true);
+        var $status = $('#ssf-gsc-broker-connect-status').text('<?php echo esc_js(__('Checking…', 'smart-seo-fixer')); ?>');
+        $.post(ssfAdmin.ajax_url, {
+            action: 'ssf_gsc_broker_connect',
+            nonce: ssfAdmin.nonce
+        }, function(r) {
+            var data = (r && r.data) || {};
+            if (data.status === 'authorized') {
+                $status.text(data.message || '<?php echo esc_js(__('Connected!', 'smart-seo-fixer')); ?>');
+                location.reload();
+                return;
+            }
+            $status.text(data.message || '<?php echo esc_js(__('Could not connect. Try again in a moment.', 'smart-seo-fixer')); ?>');
+            $btn.prop('disabled', false);
+            if (data.status && data.status !== 'needs_setup') {
+                document.getElementById('ssf-gsc-manual-fallback').open = true;
+            }
+        }).fail(function() {
+            $status.text('<?php echo esc_js(__('Network error. Please try again.', 'smart-seo-fixer')); ?>');
+            $btn.prop('disabled', false);
+        });
+    });
+
     // GSC Refresh Sites
     $('#ssf-gsc-refresh-sites').on('click', function() {
         var $btn = $(this).prop('disabled', true);

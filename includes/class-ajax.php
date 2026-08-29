@@ -59,6 +59,7 @@ class SSF_Ajax {
         add_action('wp_ajax_ssf_gsc_submit_sitemap', [$this, 'gsc_submit_sitemap']);
         add_action('wp_ajax_ssf_gsc_not_indexed', [$this, 'gsc_not_indexed']);
         add_action('wp_ajax_ssf_gsc_auto_setup', [$this, 'gsc_auto_setup']);
+        add_action('wp_ajax_ssf_gsc_broker_connect', [$this, 'gsc_broker_connect']);
         add_action('wp_ajax_ssf_ga_disconnect', [$this, 'ga_disconnect']);
         add_action('wp_ajax_ssf_ga_auto_setup', [$this, 'ga_auto_setup']);
         add_action('wp_ajax_ssf_ga_save_measurement_id', [$this, 'ga_save_measurement_id']);
@@ -3063,6 +3064,45 @@ class SSF_Ajax {
         } catch (\Throwable $e) {
             wp_send_json_error(['message' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * "Connect to Google" button for sites relying on the shared broker
+     * connection — forces a fresh check instead of waiting out the cached
+     * verdict, then reports back what the admin should see or do next.
+     */
+    public function gsc_broker_connect() {
+        $this->verify_nonce();
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Permission denied.', 'smart-seo-fixer')]);
+        }
+
+        if (!class_exists('SSF_GSC_Client')) {
+            wp_send_json_error(['message' => __('GSC module not available.', 'smart-seo-fixer')]);
+        }
+
+        $gsc = new SSF_GSC_Client();
+        $status = $gsc->refresh_broker_status();
+
+        if ($status === 'authorized') {
+            wp_send_json_success([
+                'status'  => 'authorized',
+                'message' => __('Connected! This site now uses the shared Google connection automatically.', 'smart-seo-fixer'),
+            ]);
+        }
+
+        if ($status === 'needs_setup') {
+            wp_send_json_success([
+                'status'  => 'needs_setup',
+                'message' => __('This site is cleared to connect, but the shared Google connection itself needs to be re-authorized first. Try again shortly, or set up your own credentials below in the meantime.', 'smart-seo-fixer'),
+            ]);
+        }
+
+        wp_send_json_success([
+            'status'  => $status,
+            'message' => __('This site could not connect automatically. Set up your own Google credentials below, or ask us to enable automatic access for this server.', 'smart-seo-fixer'),
+        ]);
     }
 
     public function gsc_disconnect() {
