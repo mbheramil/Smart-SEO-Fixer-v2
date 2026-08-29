@@ -246,10 +246,6 @@ class SSF_Admin {
         add_filter('manage_edit-page_sortable_columns', [$this, 'sortable_seo_column']);
         add_action('pre_get_posts', [$this, 'sort_by_seo_score']);
         
-        // Grouped admin menu (collapsible categories in sidebar)
-        add_action('admin_head', [$this, 'admin_menu_group_css']);
-        add_action('admin_footer', [$this, 'admin_menu_group_js']);
-
         // Marks pages in SHELL_PAGES so the app shell's CSS only ever
         // applies there — see filter_shell_body_class().
         add_filter('admin_body_class', [$this, 'filter_shell_body_class']);
@@ -265,163 +261,6 @@ class SSF_Admin {
             $classes .= ' ssf-shell-active';
         }
         return $classes;
-    }
-    
-    /**
-     * CSS for grouped admin menu with hover flyouts (native WP style)
-     */
-    public function admin_menu_group_css() {
-        ?>
-        <style>
-            /* Hide grouped child items from the inline submenu */
-            #adminmenu .wp-submenu .ssf-menu-group-item { display: none !important; }
-            
-            /* Group header as a normal submenu item with arrow */
-            #adminmenu .wp-submenu .ssf-flyout-trigger {
-                position: relative !important;
-                cursor: pointer !important;
-            }
-            #adminmenu .wp-submenu .ssf-flyout-trigger > a {
-                display: flex !important;
-                justify-content: space-between !important;
-                align-items: center !important;
-            }
-            #adminmenu .wp-submenu .ssf-flyout-trigger .ssf-fly-arrow {
-                font-size: 8px;
-                opacity: 0.5;
-                margin-left: 6px;
-            }
-            #adminmenu .wp-submenu .ssf-flyout-trigger:hover .ssf-fly-arrow { opacity: 1; }
-            
-            /* Flyout panel — matches native WP admin submenu */
-            .ssf-flyout-panel {
-                display: none;
-                position: absolute;
-                left: 100%;
-                min-width: 160px;
-                background: #2c3338;
-                box-shadow: 0 3px 5px rgba(0,0,0,.2);
-                padding: 7px 0;
-                z-index: 10000;
-                border-radius: 0 4px 4px 0;
-            }
-            .ssf-flyout-trigger:hover > .ssf-flyout-panel,
-            .ssf-flyout-trigger.ssf-fly-open > .ssf-flyout-panel {
-                display: block;
-            }
-            .ssf-flyout-panel a,
-            #adminmenu .ssf-flyout-panel a {
-                display: block !important;
-                padding: 7px 24px !important;
-                color: #c3c4c7 !important;
-                text-decoration: none !important;
-                font-size: 13px !important;
-                line-height: 1.5 !important;
-                white-space: nowrap;
-                margin: 0 !important;
-            }
-            .ssf-flyout-panel a:hover,
-            .ssf-flyout-panel a:focus,
-            #adminmenu .ssf-flyout-panel a:hover,
-            #adminmenu .ssf-flyout-panel a:focus {
-                color: #72aee6 !important;
-                background: transparent !important;
-            }
-            .ssf-flyout-panel a.ssf-fly-current,
-            #adminmenu .ssf-flyout-panel a.ssf-fly-current {
-                color: #fff !important;
-                font-weight: 600;
-            }
-            
-            /* Make the current page's group header look active */
-            #adminmenu .wp-submenu .ssf-flyout-trigger.ssf-has-current > a {
-                color: #fff !important;
-                font-weight: 600;
-            }
-        </style>
-        <?php
-    }
-    
-    /**
-     * JS for grouped admin menu with hover flyouts + smart vertical positioning
-     */
-    public function admin_menu_group_js() {
-        ?>
-        <script>
-        (function($) {
-            var $menuLi = $('#adminmenu a[href="admin.php?page=smart-seo-fixer"]').first().closest('li.menu-top');
-            if (!$menuLi.length) return;
-            var $sub = $menuLi.find('ul.wp-submenu');
-            if (!$sub.length) return;
-
-            var groups = [
-                { label: '<?php echo esc_js(__('Analyze & Fix', 'smart-seo-fixer')); ?>', pages: ['smart-seo-fixer-analyzer','smart-seo-fixer-bulk-fix','smart-seo-fixer-posts','smart-seo-fixer-content-suggestions'] },
-                { label: '<?php echo esc_js(__('Technical SEO', 'smart-seo-fixer')); ?>', pages: ['smart-seo-fixer-schema','smart-seo-fixer-local','smart-seo-fixer-redirects','smart-seo-fixer-broken-links','smart-seo-fixer-404-monitor','smart-seo-fixer-robots'] },
-                { label: '<?php echo esc_js(__('Search & Social', 'smart-seo-fixer')); ?>', pages: ['smart-seo-fixer-search-performance','smart-seo-fixer-gsc','smart-seo-fixer-social-preview','smart-seo-fixer-keywords'] },
-                { label: '<?php echo esc_js(__('System', 'smart-seo-fixer')); ?>', pages: ['smart-seo-fixer-jobs','smart-seo-fixer-history','smart-seo-fixer-migration','smart-seo-fixer-wp-standards','smart-seo-fixer-performance','smart-seo-fixer-debug-log'] }
-            ];
-
-            // Detect current page
-            var currentSlug = '';
-            var $curLi = $sub.find('li.current');
-            if ($curLi.length) {
-                var m = ($curLi.find('a').attr('href') || '').match(/page=([\w-]+)/);
-                if (m) currentSlug = m[1];
-            }
-
-            $.each(groups, function(idx, group) {
-                var $items = $();
-                var hasCurrent = false;
-                var flyLinks = '';
-
-                $.each(group.pages, function(_, slug) {
-                    var $li = $sub.find('a[href="admin.php?page=' + slug + '"]').closest('li');
-                    if ($li.length) {
-                        $li.addClass('ssf-menu-group-item');
-                        $items = $items.add($li);
-                        var txt = $li.find('a').text().trim();
-                        var isCur = (slug === currentSlug);
-                        if (isCur) hasCurrent = true;
-                        flyLinks += '<a href="admin.php?page=' + slug + '"' + (isCur ? ' class="ssf-fly-current"' : '') + '>' + txt + '</a>';
-                    }
-                });
-
-                if (!$items.length) return;
-
-                // Build the flyout trigger <li>
-                var $trigger = $('<li class="ssf-flyout-trigger' + (hasCurrent ? ' ssf-has-current' : '') + '">' +
-                    '<a href="#">' + group.label + ' <span class="ssf-fly-arrow">&#9654;</span></a>' +
-                    '<div class="ssf-flyout-panel">' + flyLinks + '</div></li>');
-
-                // Prevent the # link from navigating
-                $trigger.find('> a').on('click', function(e) { e.preventDefault(); });
-
-                // Insert before the first item of this group
-                $items.first().before($trigger);
-            });
-
-            // Smart flyout positioning — open upward if not enough space below
-            $sub.on('mouseenter', '.ssf-flyout-trigger', function() {
-                var $panel = $(this).find('.ssf-flyout-panel');
-                if (!$panel.length) return;
-
-                // Reset position so we can measure naturally
-                $panel.css({ top: '', bottom: '' });
-
-                var triggerRect = this.getBoundingClientRect();
-                var panelHeight = $panel.outerHeight();
-                var viewportHeight = window.innerHeight;
-
-                // If the panel would overflow the bottom of the viewport, anchor to bottom
-                if (triggerRect.top + panelHeight > viewportHeight - 8) {
-                    $panel.css({ top: 'auto', bottom: '-7px' });
-                } else {
-                    $panel.css({ top: '-7px', bottom: 'auto' });
-                }
-            });
-        })(jQuery);
-        </script>
-        <?php
     }
     
     /**
@@ -508,52 +347,42 @@ class SSF_Admin {
             'dashicons-chart-line',
             80
         );
-        
-        // Dashboard submenu
-        add_submenu_page(
-            'smart-seo-fixer',
-            __('Dashboard', 'smart-seo-fixer'),
-            __('Dashboard', 'smart-seo-fixer'),
-            'edit_posts',
-            'smart-seo-fixer',
-            [$this, 'render_dashboard']
-        );
-        
-        // ── Analyze & Fix ──
-        add_submenu_page('smart-seo-fixer', __('SEO Analyzer', 'smart-seo-fixer'), __('SEO Analyzer', 'smart-seo-fixer'), 'edit_posts', 'smart-seo-fixer-analyzer', [$this, 'render_analyzer']);
-        add_submenu_page('smart-seo-fixer', __('Bulk AI Fix', 'smart-seo-fixer'), __('Bulk AI Fix', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-bulk-fix', [$this, 'render_bulk_fix']);
-        add_submenu_page('smart-seo-fixer', __('All Posts', 'smart-seo-fixer'), __('All Posts', 'smart-seo-fixer'), 'edit_posts', 'smart-seo-fixer-posts', [$this, 'render_posts_page']);
-        add_submenu_page('smart-seo-fixer', __('Content Suggestions', 'smart-seo-fixer'), __('Content Tips', 'smart-seo-fixer'), 'edit_posts', 'smart-seo-fixer-content-suggestions', [$this, 'render_content_suggestions']);
-        
-        // ── Technical SEO ──
-        add_submenu_page('smart-seo-fixer', __('Schema', 'smart-seo-fixer'), __('Schema', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-schema', [$this, 'render_schema_page']);
-        add_submenu_page('smart-seo-fixer', __('Local SEO', 'smart-seo-fixer'), __('Local SEO', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-local', [$this, 'render_local_seo']);
-        add_submenu_page('smart-seo-fixer', __('Redirects', 'smart-seo-fixer'), __('Redirects', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-redirects', [$this, 'render_redirects_page']);
-        add_submenu_page('smart-seo-fixer', __('Broken Links', 'smart-seo-fixer'), __('Broken Links', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-broken-links', [$this, 'render_broken_links']);
-        add_submenu_page('smart-seo-fixer', __('404 Monitor', 'smart-seo-fixer'), __('404 Monitor', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-404-monitor', [$this, 'render_404_monitor']);
-        add_submenu_page('smart-seo-fixer', __('robots.txt', 'smart-seo-fixer'), __('robots.txt', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-robots', [$this, 'render_robots_editor']);
-        
-        // ── Search & Social ──
-        add_submenu_page('smart-seo-fixer', __('Search Performance', 'smart-seo-fixer'), __('Search Perf.', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-search-performance', [$this, 'render_search_performance']);
-        add_submenu_page('smart-seo-fixer', __('Indexability Auditor', 'smart-seo-fixer'), __('Indexability', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-gsc', [$this, 'render_gsc_page']);
-        add_submenu_page('smart-seo-fixer', __('Social Preview', 'smart-seo-fixer'), __('Social Preview', 'smart-seo-fixer'), 'edit_posts', 'smart-seo-fixer-social-preview', [$this, 'render_social_preview']);
-        add_submenu_page('smart-seo-fixer', __('Keyword Tracker', 'smart-seo-fixer'), __('Keywords', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-keywords', [$this, 'render_keyword_tracker']);
-        
-        // ── Reports ──
-        // Registered (so the page itself still works) but hidden from the
-        // sidebar — it's linked from Settings instead of being a top-level
-        // nav item.
-        add_submenu_page('smart-seo-fixer', __('Client Report', 'smart-seo-fixer'), __('Client Report', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-client-report', [$this, 'render_client_report']);
-        remove_submenu_page('smart-seo-fixer', 'smart-seo-fixer-client-report');
 
-        // ── System ──
-        add_submenu_page('smart-seo-fixer', __('Background Jobs', 'smart-seo-fixer'), __('Jobs', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-jobs', [$this, 'render_job_queue']);
-        add_submenu_page('smart-seo-fixer', __('Change History', 'smart-seo-fixer'), __('History', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-history', [$this, 'render_change_history']);
-        add_submenu_page('smart-seo-fixer', __('Migration', 'smart-seo-fixer'), __('Migration', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-migration', [$this, 'render_migration']);
-        add_submenu_page('smart-seo-fixer', __('Debug Log', 'smart-seo-fixer'), __('Debug Log', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-debug-log', [$this, 'render_debug_log']);
-        
-        // ── Always visible ──
-        add_submenu_page('smart-seo-fixer', __('Settings', 'smart-seo-fixer'), __('Settings', 'smart-seo-fixer'), 'manage_options', 'smart-seo-fixer-settings', [$this, 'render_settings']);
+        // Every page below is still registered as a real WordPress submenu
+        // (so capability checks, get_current_screen(), and the pages
+        // themselves keep working exactly as before) but immediately
+        // removed from display — the app shell's own sidebar is the real
+        // navigation now, so a second, duplicate list under "Smart SEO" in
+        // WordPress's own menu would just be clutter. The top-level "Smart
+        // SEO" item alone remains, linking straight to the Dashboard.
+        $pages = [
+            ['smart-seo-fixer',                   'Dashboard',            'Dashboard',            'edit_posts',     'render_dashboard'],
+            ['smart-seo-fixer-analyzer',           'SEO Analyzer',         'SEO Analyzer',         'edit_posts',     'render_analyzer'],
+            ['smart-seo-fixer-bulk-fix',            'Bulk AI Fix',          'Bulk AI Fix',          'manage_options', 'render_bulk_fix'],
+            ['smart-seo-fixer-posts',               'All Posts',            'All Posts',            'edit_posts',     'render_posts_page'],
+            ['smart-seo-fixer-content-suggestions', 'Content Suggestions', 'Content Tips',         'edit_posts',     'render_content_suggestions'],
+            ['smart-seo-fixer-schema',              'Schema',               'Schema',               'manage_options', 'render_schema_page'],
+            ['smart-seo-fixer-local',               'Local SEO',            'Local SEO',            'manage_options', 'render_local_seo'],
+            ['smart-seo-fixer-redirects',           'Redirects',            'Redirects',            'manage_options', 'render_redirects_page'],
+            ['smart-seo-fixer-broken-links',        'Broken Links',         'Broken Links',         'manage_options', 'render_broken_links'],
+            ['smart-seo-fixer-404-monitor',         '404 Monitor',          '404 Monitor',          'manage_options', 'render_404_monitor'],
+            ['smart-seo-fixer-robots',              'robots.txt',           'robots.txt',           'manage_options', 'render_robots_editor'],
+            ['smart-seo-fixer-search-performance',  'Search Performance',   'Search Perf.',         'manage_options', 'render_search_performance'],
+            ['smart-seo-fixer-gsc',                 'Indexability Auditor', 'Indexability',         'manage_options', 'render_gsc_page'],
+            ['smart-seo-fixer-social-preview',      'Social Preview',       'Social Preview',       'edit_posts',     'render_social_preview'],
+            ['smart-seo-fixer-keywords',            'Keyword Tracker',      'Keywords',             'manage_options', 'render_keyword_tracker'],
+            ['smart-seo-fixer-client-report',       'Client Report',        'Client Report',        'manage_options', 'render_client_report'],
+            ['smart-seo-fixer-jobs',                'Background Jobs',     'Jobs',                 'manage_options', 'render_job_queue'],
+            ['smart-seo-fixer-history',              'Change History',      'History',              'manage_options', 'render_change_history'],
+            ['smart-seo-fixer-migration',            'Migration',            'Migration',            'manage_options', 'render_migration'],
+            ['smart-seo-fixer-debug-log',            'Debug Log',            'Debug Log',            'manage_options', 'render_debug_log'],
+            ['smart-seo-fixer-settings',             'Settings',             'Settings',             'manage_options', 'render_settings'],
+        ];
+
+        foreach ($pages as [$slug, $page_title, $menu_title, $cap, $callback]) {
+            add_submenu_page('smart-seo-fixer', __($page_title, 'smart-seo-fixer'), __($menu_title, 'smart-seo-fixer'), $cap, $slug, [$this, $callback]);
+            remove_submenu_page('smart-seo-fixer', $slug);
+        }
     }
     
     /**
