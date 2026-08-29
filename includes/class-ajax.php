@@ -60,6 +60,7 @@ class SSF_Ajax {
         add_action('wp_ajax_ssf_gsc_not_indexed', [$this, 'gsc_not_indexed']);
         add_action('wp_ajax_ssf_gsc_auto_setup', [$this, 'gsc_auto_setup']);
         add_action('wp_ajax_ssf_gsc_broker_connect', [$this, 'gsc_broker_connect']);
+        add_action('wp_ajax_ssf_ga_broker_connect', [$this, 'ga_broker_connect']);
         add_action('wp_ajax_ssf_ga_disconnect', [$this, 'ga_disconnect']);
         add_action('wp_ajax_ssf_ga_auto_setup', [$this, 'ga_auto_setup']);
         add_action('wp_ajax_ssf_ga_save_measurement_id', [$this, 'ga_save_measurement_id']);
@@ -3099,9 +3100,18 @@ class SSF_Ajax {
             ]);
         }
 
-        // The broker refused this server outright — most likely its outbound
-        // IP isn't on the allow-list. Look it up so the admin has something
-        // actionable to send us instead of a dead end.
+        wp_send_json_success($this->broker_connect_failure_response($status));
+    }
+
+    /**
+     * Looks up this server's real outbound IP and builds the "couldn't
+     * connect" response shared by every "Connect to Google" button — the
+     * broker refused the server outright, most likely because its outbound
+     * IP isn't on the allow-list, and the DNS-facing IP doesn't always match
+     * it on shared hosting. Shared by the GSC and GA4 connect handlers since
+     * both use the same broker and the same allow-list.
+     */
+    private function broker_connect_failure_response($status) {
         $outbound_ip = '';
         $ip_response = wp_remote_get('https://checkip.amazonaws.com', ['timeout' => 5]);
         if (!is_wp_error($ip_response) && wp_remote_retrieve_response_code($ip_response) === 200) {
@@ -3119,11 +3129,47 @@ class SSF_Ajax {
             )
             : __('This site could not connect automatically. Set up your own Google credentials below, or ask us to enable automatic access for this server.', 'smart-seo-fixer');
 
-        wp_send_json_success([
+        return [
             'status'      => $status,
             'message'     => $message,
             'outbound_ip' => $outbound_ip,
-        ]);
+        ];
+    }
+
+    /**
+     * "Connect to Google" button for Analytics — same shared broker
+     * connection as Search Console, just probed independently since the two
+     * relays are checked (and cached) separately.
+     */
+    public function ga_broker_connect() {
+        $this->verify_nonce();
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Permission denied.', 'smart-seo-fixer')]);
+        }
+
+        if (!class_exists('SSF_GA_Client')) {
+            wp_send_json_error(['message' => __('GA module not available.', 'smart-seo-fixer')]);
+        }
+
+        $ga = new SSF_GA_Client();
+        $status = $ga->refresh_broker_status();
+
+        if ($status === 'authorized') {
+            wp_send_json_success([
+                'status'  => 'authorized',
+                'message' => __('Connected! This site now uses the shared Google connection automatically.', 'smart-seo-fixer'),
+            ]);
+        }
+
+        if ($status === 'needs_setup') {
+            wp_send_json_success([
+                'status'  => 'needs_setup',
+                'message' => __('This site is cleared to connect, but the shared Google connection itself needs to be re-authorized first. Try again shortly, or set up your own credentials below in the meantime.', 'smart-seo-fixer'),
+            ]);
+        }
+
+        wp_send_json_success($this->broker_connect_failure_response($status));
     }
 
     public function gsc_disconnect() {

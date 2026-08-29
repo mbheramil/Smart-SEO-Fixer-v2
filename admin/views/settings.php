@@ -79,17 +79,21 @@ if (class_exists('SSF_GSC_Client')) {
 }
 
 // Google Analytics 4 state
-$ga_connected      = false;
-$ga_measurement_id = '';
-$ga_property_id    = '';
-$ga_auto_tag       = true;
-$ga_client         = null;
+$ga_connected          = false;
+$ga_measurement_id     = '';
+$ga_property_id        = '';
+$ga_auto_tag           = true;
+$ga_client             = null;
+$ga_via_broker         = false;
+$ga_broker_needs_setup = false;
 if (class_exists('SSF_GA_Client')) {
-    $ga_client         = new SSF_GA_Client();
-    $ga_connected      = $ga_client->is_connected();
-    $ga_measurement_id = $ga_client->get_measurement_id();
-    $ga_property_id    = $ga_client->get_property_id();
-    $ga_auto_tag       = (bool) get_option(SSF_GA_Client::AUTO_TAG_OPTION, true);
+    $ga_client             = new SSF_GA_Client();
+    $ga_connected          = $ga_client->is_connected();
+    $ga_via_broker         = $ga_client->is_using_broker() && !Smart_SEO_Fixer::get_option('gsc_client_id', '');
+    $ga_broker_needs_setup = $ga_client->broker_needs_setup();
+    $ga_measurement_id     = $ga_client->get_measurement_id();
+    $ga_property_id        = $ga_client->get_property_id();
+    $ga_auto_tag           = (bool) get_option(SSF_GA_Client::AUTO_TAG_OPTION, true);
 }
 
 $auto_meta = Smart_SEO_Fixer::get_option('auto_meta', true);
@@ -624,17 +628,7 @@ unset($available_post_types['attachment']);
                     <?php esc_html_e('Connect GA4 to auto-create a property, install the tracking code, and show real visitor metrics in your Client Report.', 'smart-seo-fixer'); ?>
                 </p>
 
-                <?php if (empty($gsc_client_id) || empty($gsc_client_secret)): ?>
-                    <div class="notice notice-warning inline" style="margin:12px 0;">
-                        <p><?php
-                            if ($gsc_via_broker) {
-                                esc_html_e('Analytics is not covered by the shared Search Console connection. Add a Client ID and Secret under "Optional: Google OAuth credentials" in the Search Console section above to use it.', 'smart-seo-fixer');
-                            } else {
-                                esc_html_e('First configure your Google OAuth Client ID and Secret in the Google Search Console section above — Analytics uses the same credentials.', 'smart-seo-fixer');
-                            }
-                        ?></p>
-                    </div>
-                <?php elseif ($ga_connected): ?>
+                <?php if ($ga_connected): ?>
                     <div style="padding: 12px 16px; background: #d1fae5; border-left: 4px solid #10b981; border-radius: 4px; margin-bottom: 16px;">
                         <span class="dashicons dashicons-yes-alt" style="color: #10b981; vertical-align: middle;"></span>
                         <strong style="color: #047857;"><?php esc_html_e('Connected to Google Analytics', 'smart-seo-fixer'); ?></strong>
@@ -643,6 +637,11 @@ unset($available_post_types['attachment']);
                                 <?php esc_html_e('Measurement ID:', 'smart-seo-fixer'); ?>
                                 <code><?php echo esc_html($ga_measurement_id); ?></code>
                             </span>
+                        <?php endif; ?>
+                        <?php if ($ga_via_broker): ?>
+                            <p style="margin: 8px 0 0; color: #166534; font-size: 13px;">
+                                <?php esc_html_e('This site is connected automatically — no Client ID, Client Secret or Google Cloud Console setup is needed here.', 'smart-seo-fixer'); ?>
+                            </p>
                         <?php endif; ?>
                     </div>
 
@@ -659,9 +658,11 @@ unset($available_post_types['attachment']);
                             <span class="dashicons dashicons-chart-line" style="vertical-align:text-bottom;"></span>
                             <?php esc_html_e('Test Data Fetch (Last 7 Days)', 'smart-seo-fixer'); ?>
                         </button>
+                        <?php if (!$ga_via_broker): ?>
                         <button type="button" class="button" id="ssf-ga-disconnect">
                             <?php esc_html_e('Disconnect', 'smart-seo-fixer'); ?>
                         </button>
+                        <?php endif; ?>
                     </p>
                     <p class="description">
                         <?php esc_html_e('One-click setup creates a new GA4 property under your first Analytics account, adds a web data stream for this site, and installs the tracking code.', 'smart-seo-fixer'); ?>
@@ -707,30 +708,62 @@ unset($available_post_types['attachment']);
                         </label>
                     </p>
                 <?php else: ?>
+                    <?php if ($ga_broker_needs_setup): ?>
+                        <div class="notice notice-warning inline" style="margin: 0 0 16px;">
+                            <p>
+                                <?php esc_html_e('This site is cleared to use the shared Google connection, but that connection itself needs to be re-authorized before it can serve Analytics data. Try Connect again shortly, or connect this site individually below in the meantime.', 'smart-seo-fixer'); ?>
+                            </p>
+                        </div>
+                    <?php endif; ?>
+
                     <p>
-                        <a href="<?php echo esc_url($ga_client ? $ga_client->get_auth_url() : '#'); ?>" class="button button-primary button-large">
+                        <button type="button" class="button button-primary button-large" id="ssf-ga-broker-connect">
                             <span class="dashicons dashicons-google" style="vertical-align: text-bottom;"></span>
-                            <?php esc_html_e('Connect Google Analytics', 'smart-seo-fixer'); ?>
-                        </a>
+                            <?php esc_html_e('Connect to Google', 'smart-seo-fixer'); ?>
+                        </button>
+                        <span id="ssf-ga-broker-connect-status" style="margin-left: 8px; color: #666;"></span>
                     </p>
-                    <div style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
-                        <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
-                            <span class="dashicons dashicons-info" style="font-size: 16px;"></span>
-                            <?php esc_html_e('One-time setup in Google Cloud:', 'smart-seo-fixer'); ?>
-                        </p>
-                        <ol style="margin: 0; padding-left: 20px; color: #1e3a5f; font-size: 13px;">
-                            <li><?php printf(
-                                __('In the same Google Cloud project used for Search Console, enable the %s and the %s', 'smart-seo-fixer'),
-                                '<a href="https://console.cloud.google.com/apis/library/analyticsadmin.googleapis.com" target="_blank">Google Analytics Admin API</a>',
-                                '<a href="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com" target="_blank">Google Analytics Data API</a>'
-                            ); ?></li>
-                            <li><?php esc_html_e('Click "Connect Google Analytics" above and grant the requested permissions', 'smart-seo-fixer'); ?></li>
-                            <li><?php printf(
-                                __('If you don\'t have any GA4 accounts yet, visit %s once to accept Google\'s Terms of Service first', 'smart-seo-fixer'),
-                                '<a href="https://analytics.google.com/" target="_blank">analytics.google.com</a>'
-                            ); ?></li>
-                        </ol>
-                    </div>
+                    <p class="description" style="margin: 0 0 16px;">
+                        <?php esc_html_e('No Google Cloud Console setup needed — click Connect and this site checks in with the shared Google connection automatically.', 'smart-seo-fixer'); ?>
+                    </p>
+
+                    <details id="ssf-ga-manual-fallback"<?php echo (!empty($gsc_client_id) && !empty($gsc_client_secret)) ? ' open' : ''; ?>>
+                        <summary style="cursor: pointer; color: #555; font-size: 13px;">
+                            <?php esc_html_e('Advanced: use my own Google credentials instead', 'smart-seo-fixer'); ?>
+                        </summary>
+                        <div style="margin-top: 12px;">
+                            <?php if (!empty($gsc_client_id) && !empty($gsc_client_secret)): ?>
+                                <p>
+                                    <a href="<?php echo esc_url($ga_client ? $ga_client->get_auth_url() : '#'); ?>" class="button button-primary">
+                                        <span class="dashicons dashicons-google" style="vertical-align: text-bottom;"></span>
+                                        <?php esc_html_e('Connect Google Analytics', 'smart-seo-fixer'); ?>
+                                    </a>
+                                </p>
+                            <?php else: ?>
+                                <p class="description">
+                                    <?php esc_html_e('Enter a Client ID and Secret in the Google Search Console section above (Analytics reuses the same credentials), save settings, then click Connect here.', 'smart-seo-fixer'); ?>
+                                </p>
+                            <?php endif; ?>
+                            <div style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;">
+                                <p style="margin: 0 0 8px; font-weight: 600; color: #1e40af;">
+                                    <span class="dashicons dashicons-info" style="font-size: 16px;"></span>
+                                    <?php esc_html_e('One-time setup in Google Cloud:', 'smart-seo-fixer'); ?>
+                                </p>
+                                <ol style="margin: 0; padding-left: 20px; color: #1e3a5f; font-size: 13px;">
+                                    <li><?php printf(
+                                        __('In the same Google Cloud project used for Search Console, enable the %s and the %s', 'smart-seo-fixer'),
+                                        '<a href="https://console.cloud.google.com/apis/library/analyticsadmin.googleapis.com" target="_blank">Google Analytics Admin API</a>',
+                                        '<a href="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com" target="_blank">Google Analytics Data API</a>'
+                                    ); ?></li>
+                                    <li><?php esc_html_e('Click "Connect Google Analytics" above and grant the requested permissions', 'smart-seo-fixer'); ?></li>
+                                    <li><?php printf(
+                                        __('If you don\'t have any GA4 accounts yet, visit %s once to accept Google\'s Terms of Service first', 'smart-seo-fixer'),
+                                        '<a href="https://analytics.google.com/" target="_blank">analytics.google.com</a>'
+                                    ); ?></li>
+                                </ol>
+                            </div>
+                        </div>
+                    </details>
                 <?php endif; ?>
             </div>
         </div>
@@ -1374,6 +1407,31 @@ jQuery(document).ready(function($) {
             $btn.prop('disabled', false);
             if (data.status && data.status !== 'needs_setup') {
                 document.getElementById('ssf-gsc-manual-fallback').open = true;
+            }
+        }).fail(function() {
+            $status.text('<?php echo esc_js(__('Network error. Please try again.', 'smart-seo-fixer')); ?>');
+            $btn.prop('disabled', false);
+        });
+    });
+
+    // GA Connect via the shared broker — no Google Cloud Console needed
+    $('#ssf-ga-broker-connect').on('click', function() {
+        var $btn = $(this).prop('disabled', true);
+        var $status = $('#ssf-ga-broker-connect-status').text('<?php echo esc_js(__('Checking…', 'smart-seo-fixer')); ?>');
+        $.post(ssfAdmin.ajax_url, {
+            action: 'ssf_ga_broker_connect',
+            nonce: ssfAdmin.nonce
+        }, function(r) {
+            var data = (r && r.data) || {};
+            if (data.status === 'authorized') {
+                $status.html(data.message || '<?php echo esc_js(__('Connected!', 'smart-seo-fixer')); ?>');
+                location.reload();
+                return;
+            }
+            $status.html(data.message || '<?php echo esc_js(__('Could not connect. Try again in a moment.', 'smart-seo-fixer')); ?>');
+            $btn.prop('disabled', false);
+            if (data.status && data.status !== 'needs_setup') {
+                document.getElementById('ssf-ga-manual-fallback').open = true;
             }
         }).fail(function() {
             $status.text('<?php echo esc_js(__('Network error. Please try again.', 'smart-seo-fixer')); ?>');

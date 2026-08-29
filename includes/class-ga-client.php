@@ -54,13 +54,26 @@ class SSF_GA_Client {
 
     /* -------------------- Status helpers -------------------- */
 
+    /**
+     * True when the central broker will serve this site, since in that case
+     * no OAuth client of its own is needed at all. See SSF_GSC_Client for the
+     * full rationale — this is the same shared connection, just with
+     * Analytics scopes added, so there is exactly one Google authorization
+     * for the whole fleet covering both Search Console and Analytics.
+     */
     public function has_credentials() {
-        return !empty($this->client_id) && !empty($this->client_secret);
+        if (!empty($this->client_id) && !empty($this->client_secret)) {
+            return true;
+        }
+        return $this->is_using_broker();
     }
 
     public function is_connected() {
         $tokens = $this->get_tokens();
-        return !empty($tokens['access_token']);
+        if (!empty($tokens['access_token'])) {
+            return true;
+        }
+        return $this->is_using_broker();
     }
 
     public function get_measurement_id() {
@@ -69,7 +82,177 @@ class SSF_GA_Client {
 
     public function get_property_id() {
         // Stored as "properties/123456789" (full resource name)
-        return trim((string) get_option(self::PROPERTY_OPTION, ''));
+        $stored = trim((string) get_option(self::PROPERTY_OPTION, ''));
+        if ($stored !== '') {
+            return $stored;
+        }
+        return $this->broker_property();
+    }
+
+    // ========================================================
+    // Central broker
+    // ========================================================
+
+    const BROKER_STATUS_TRANSIENT = 'ssf_ga_broker_status';
+
+    private $broker_property_cache = null;
+
+    private function get_broker_url() {
+        if (defined('SSF_BEDROCK_BROKER_URL') && SSF_BEDROCK_BROKER_URL !== '') {
+            return rtrim(SSF_BEDROCK_BROKER_URL, '/');
+        }
+        if (class_exists('SSF_Bedrock')) {
+            return rtrim(SSF_Bedrock::DEFAULT_BROKER_URL, '/');
+        }
+        return '';
+    }
+
+    private function broker_status() {
+        $cached = get_transient(self::BROKER_STATUS_TRANSIENT);
+        if ($cached !== false) {
+            return $cached;
+        }
+        if ($this->get_broker_url() === '') {
+            return 'unavailable';
+        }
+        $this->broker_call('status');
+        $status = get_transient(self::BROKER_STATUS_TRANSIENT);
+        return $status === false ? 'unavailable' : $status;
+    }
+
+    public function is_using_broker() {
+        return $this->broker_status() === 'authorized';
+    }
+
+    public function broker_needs_setup() {
+        return $this->broker_status() === 'needs_setup';
+    }
+
+    /** Forces a fresh probe — see SSF_GSC_Client::refresh_broker_status() for why. */
+    public function refresh_broker_status() {
+        delete_transient(self::BROKER_STATUS_TRANSIENT);
+        $this->broker_property_cache = null;
+        return $this->broker_status();
+    }
+
+    /**
+     * One request to the broker's GA4 relay. Same return contract as
+     * SSF_GSC_Client::broker_call() — array on success, WP_Error on a real
+     * (non-fallback) failure, null to fall back to this site's own OAuth.
+     *
+     * @return array|WP_Error|null
+     */
+    private function broker_call($operation, $params = []) {
+        $base = $this->get_broker_url();
+        if ($base === '') {
+            return null;
+        }
+
+        $headers = ['Content-Type' => 'application/json'];
+        if (defined('SSF_BEDROCK_BROKER_TOKEN') && SSF_BEDROCK_BROKER_TOKEN !== '') {
+            $headers['Authorization'] = 'Bearer ' . SSF_BEDROCK_BROKER_TOKEN;
+        }
+
+        $body = array_merge($params, [
+            'operation' => $operation,
+            'site_url'  => home_url('/'),
+        ]);
+
+        $response = wp_remote_post($base . '/ga/request', [
+            'timeout' => 30,
+            'headers' => $headers,
+            'body'    => wp_json_encode($body),
+        ]);
+
+        if (is_wp_error($response)) {
+            set_transient(self::BROKER_STATUS_TRANSIENT, 'unreachable', 5 * MINUTE_IN_SECONDS);
+            return null;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        if (!is_array($data)) {
+            $data = [];
+        }
+
+        if ($code === 403) {
+            if (!empty($data['scope_error'])) {
+                set_transient(self::BROKER_STATUS_TRANSIENT, 'authorized', 12 * HOUR_IN_SECONDS);
+                return new WP_Error('ga_broker_scope', $data['message'] ?? __('That Analytics property does not belong to this site.', 'smart-seo-fixer'));
+            }
+            set_transient(self::BROKER_STATUS_TRANSIENT, 'unauthorized', 12 * HOUR_IN_SECONDS);
+            return null;
+        }
+
+        if ($code === 409) {
+            set_transient(self::BROKER_STATUS_TRANSIENT, 'needs_setup', HOUR_IN_SECONDS);
+            if (class_exists('SSF_Logger')) {
+                SSF_Logger::warning('Analytics broker has no valid Google connection: ' . ($data['message'] ?? ''), 'ga');
+            }
+            return null;
+        }
+
+        if (!array_key_exists('ok', $data)) {
+            set_transient(self::BROKER_STATUS_TRANSIENT, 'unavailable', HOUR_IN_SECONDS);
+            return null;
+        }
+
+        set_transient(self::BROKER_STATUS_TRANSIENT, 'authorized', 12 * HOUR_IN_SECONDS);
+
+        if ($code >= 400 || empty($data['ok'])) {
+            $message = $data['message'] ?? sprintf(__('HTTP %d from the Analytics broker.', 'smart-seo-fixer'), $code);
+            if (class_exists('SSF_Logger')) {
+                SSF_Logger::error('GA broker error: ' . $message, 'ga', ['operation' => $operation, 'code' => $code]);
+            }
+            return new WP_Error('ga_broker_error', $message);
+        }
+
+        return (isset($data['data']) && is_array($data['data'])) ? $data['data'] : [];
+    }
+
+    private function broker_op($operation, $params = []) {
+        if (!$this->is_using_broker()) {
+            return null;
+        }
+        return $this->broker_call($operation, $params);
+    }
+
+    /**
+     * The GA4 property this site should use, in broker mode — auto-detected
+     * from whatever property's own web stream already points at this site's
+     * domain, the same "no user involvement needed for a fresh install" idea
+     * as SSF_GSC_Client::broker_property(). Also persists the measurement ID
+     * and stream, so gtag injection starts working with nothing clicked.
+     */
+    private function broker_property() {
+        if ($this->broker_property_cache !== null) {
+            return $this->broker_property_cache;
+        }
+
+        $stored = get_option(self::PROPERTY_OPTION, '');
+        if (!empty($stored)) {
+            return $this->broker_property_cache = $stored;
+        }
+
+        $result = $this->broker_op('list_properties');
+        if (is_wp_error($result) || !is_array($result) || empty($result['properties'][0])) {
+            return $this->broker_property_cache = '';
+        }
+
+        $match = $result['properties'][0];
+        update_option(self::PROPERTY_OPTION, $match['property'], false);
+        if (!empty($match['account'])) {
+            update_option(self::ACCOUNT_OPTION, $match['account'], false);
+        }
+        if (!empty($match['stream'])) {
+            update_option(self::STREAM_OPTION, $match['stream'], false);
+        }
+        if (!empty($match['measurement_id'])) {
+            update_option(self::MEASUREMENT_ID_OPT, $match['measurement_id'], false);
+            update_option(self::AUTO_TAG_OPTION, true, false);
+        }
+
+        return $this->broker_property_cache = $match['property'];
     }
 
     public function get_property_numeric_id() {
@@ -322,6 +505,18 @@ class SSF_GA_Client {
      * ]
      */
     public function list_all_properties() {
+        // Broker mode already returns just this site's own properties —
+        // scoped server-side, unlike the direct-mode list below which shows
+        // everything the connected account can see (fine there: one account
+        // dedicated to one site, nothing shared to accidentally expose).
+        $broker_result = $this->broker_op('list_properties');
+        if (is_wp_error($broker_result)) {
+            return $broker_result;
+        }
+        if (is_array($broker_result)) {
+            return $broker_result['properties'] ?? [];
+        }
+
         $summaries = $this->list_account_summaries();
         if (is_wp_error($summaries)) {
             return $summaries;
@@ -495,6 +690,11 @@ class SSF_GA_Client {
             $body['dimensions'] = array_map(function ($d) { return ['name' => $d]; }, $dimensions);
         }
 
+        $broker_result = $this->broker_op('run_report', ['property' => $property, 'body' => $body]);
+        if ($broker_result !== null) {
+            return $broker_result;
+        }
+
         return $this->request('POST', $this->data_api . '/' . $property . ':runReport', $body);
     }
 
@@ -622,6 +822,68 @@ class SSF_GA_Client {
             return $log;
         }
         $add_step('precheck_domain', true, $host);
+
+        // In broker mode the shared account is resolved server-side, on the
+        // broker — this site never sees or picks an account id. Create the
+        // property and its stream in two broker calls, skip the direct-mode
+        // account bookkeeping entirely, and fall through to that bookkeeping
+        // only if the broker declines mid-flow (rare: it already reported
+        // itself authorized moments ago in is_using_broker()).
+        if ($this->is_using_broker()) {
+            $property = $this->broker_op('create_property', [
+                'display_name' => $site_name,
+                'timezone'     => $tz,
+                'currency'     => $currency,
+            ]);
+            if (is_wp_error($property)) {
+                $add_step('create_property', false, $property->get_error_message());
+                $log['message'] = $property->get_error_message();
+                return $log;
+            }
+            if ($property !== null) {
+                $property_name = $property['name'] ?? '';
+                if (empty($property_name)) {
+                    $add_step('create_property', false, __('Broker returned no property name.', 'smart-seo-fixer'));
+                    $log['message'] = __('Broker returned no property name.', 'smart-seo-fixer');
+                    return $log;
+                }
+                $add_step('create_property', true, $property_name);
+
+                $stream = $this->broker_op('create_stream', [
+                    'property'     => $property_name,
+                    'display_name' => $site_name,
+                ]);
+                if (is_wp_error($stream) || $stream === null) {
+                    $message = is_wp_error($stream)
+                        ? $stream->get_error_message()
+                        : __('Broker declined the stream creation step.', 'smart-seo-fixer');
+                    $add_step('create_stream', false, $message);
+                    $log['message'] = $message;
+                    return $log;
+                }
+                $measurement_id = $stream['webStreamData']['measurementId'] ?? '';
+                $stream_name    = $stream['name'] ?? '';
+                if (empty($measurement_id)) {
+                    $add_step('create_stream', false, __('Stream created but no measurement ID returned.', 'smart-seo-fixer'));
+                    $log['message'] = __('Stream created but no measurement ID returned.', 'smart-seo-fixer');
+                    return $log;
+                }
+                $add_step('create_stream', true, $measurement_id);
+
+                update_option(self::PROPERTY_OPTION, $property_name, false);
+                update_option(self::STREAM_OPTION, $stream_name, false);
+                update_option(self::MEASUREMENT_ID_OPT, $measurement_id, false);
+                update_option(self::AUTO_TAG_OPTION, true, false);
+                $this->broker_property_cache = $property_name;
+                $add_step('save_config', true, $measurement_id);
+
+                $log['success']        = true;
+                $log['measurement_id'] = $measurement_id;
+                $log['property']       = $property_name;
+                $log['message']        = __('Google Analytics 4 property created and tracking code installed on your site.', 'smart-seo-fixer');
+                return $log;
+            }
+        }
 
         // 1. List accounts
         $summaries = $this->list_account_summaries();
