@@ -12,12 +12,11 @@ if (!defined('ABSPATH')) {
 class SSF_Admin {
 
     /**
-     * Pages that render the full custom app shell (own sidebar/top bar,
-     * WordPress's own admin bar and left menu hidden) instead of sitting in
-     * normal wp-admin chrome. Deliberately an explicit, incrementally-grown
-     * list rather than "every plugin page" — a page not in this list still
-     * renders inside WordPress's normal nav, so there is always a way to
-     * navigate even mid-rollout. Values are the page slug used in
+     * Pages that render the custom app shell — its own sidebar + top bar,
+     * filling the normal wp-admin content column alongside WordPress's own
+     * admin bar and left menu (both stay visible/usable; the shell doesn't
+     * replace them). A page not in this list renders exactly as it did
+     * before the shell existed. Values are the page slug used in
      * admin.php?page=... .
      */
     const SHELL_PAGES = [
@@ -188,9 +187,6 @@ class SSF_Admin {
             echo '</nav>';
         }
 
-        // Escape hatch — WordPress's own admin bar (and its way back to the
-        // normal dashboard) is hidden while the shell is active.
-        echo '<a class="ssf-app-exit" href="' . esc_url(admin_url()) . '">&larr; ' . esc_html__('WordPress Admin', 'smart-seo-fixer') . '</a>';
         echo '</aside>';
 
         echo '<div class="ssf-app-main">';
@@ -254,16 +250,14 @@ class SSF_Admin {
         add_action('admin_head', [$this, 'admin_menu_group_css']);
         add_action('admin_footer', [$this, 'admin_menu_group_js']);
 
-        // Marks pages in SHELL_PAGES so the "hide WordPress chrome" CSS can
-        // scope to exactly those pages and no others — see filter_shell_body_class().
+        // Marks pages in SHELL_PAGES so the app shell's CSS only ever
+        // applies there — see filter_shell_body_class().
         add_filter('admin_body_class', [$this, 'filter_shell_body_class']);
     }
 
     /**
-     * Appends a class WordPress pages in SHELL_PAGES so the custom app
-     * shell's CSS (which hides #wpadminbar/#adminmenumain and takes over
-     * the viewport) only ever applies there — everywhere else keeps
-     * WordPress's own navigation untouched.
+     * Appends a class on pages in SHELL_PAGES so the custom app shell's CSS
+     * only ever applies there — everywhere else renders exactly as before.
      */
     public function filter_shell_body_class($classes) {
         $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';

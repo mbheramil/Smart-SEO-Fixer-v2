@@ -2027,49 +2027,39 @@ body.ssf-pdf-exporting .ssf-report {
 }
 
 /* ==========================================================================
-   App shell — full custom takeover (Stripe-reference), scoped strictly to
-   body.ssf-shell-active so pages not yet migrated keep WordPress's own
-   navigation intact. See SSF_Admin::SHELL_PAGES / render_shell_open().
+   App shell — Stripe-style sidebar + content, living INSIDE WordPress's own
+   admin chrome (the admin bar and left WP menu stay visible/usable) rather
+   than replacing it. Scoped to body.ssf-shell-active so pages not yet
+   migrated are unaffected. See SSF_Admin::SHELL_PAGES / render_shell_open().
+   Earlier revision hid #wpadminbar/#adminmenumain and took over the full
+   viewport; reverted after review — the shell now just fills the normal
+   content column, same as any other admin page.
    ========================================================================== */
 
-body.ssf-shell-active #wpadminbar,
-body.ssf-shell-active #adminmenumain,
-body.ssf-shell-active #adminmenuback,
-body.ssf-shell-active #adminmenuwrap,
-body.ssf-shell-active #wpfooter {
-    display: none !important;
-}
-
-body.ssf-shell-active html.wp-toolbar {
-    padding-top: 0 !important;
-}
-
-body.ssf-shell-active #wpcontent,
-body.ssf-shell-active #wpbody,
-body.ssf-shell-active #wpbody-content {
-    margin-left: 0 !important;
-    padding: 0 !important;
-}
-
 .ssf-app-shell {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
     display: flex;
+    align-items: stretch;
+    height: calc(100vh - 130px);
+    min-height: 520px;
+    margin: 20px 20px 20px 0;
+    border: 1px solid var(--ssf-gray-200);
+    border-radius: var(--ssf-radius);
     background: #fff;
+    overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--ssf-gray-900);
     -webkit-font-smoothing: antialiased;
 }
 
 .ssf-app-sidebar {
-    width: 232px;
+    width: 220px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--ssf-gray-200);
-    padding: 20px 12px 16px;
+    padding: 16px 10px 14px;
     overflow-y: auto;
+    background: var(--ssf-gray-50);
 }
 
 .ssf-app-brand {
@@ -2131,20 +2121,6 @@ body.ssf-shell-active #wpbody-content {
     margin-top: auto;
     padding-top: 10px;
     border-top: 1px solid var(--ssf-gray-100);
-}
-
-.ssf-app-exit {
-    display: block;
-    margin-top: 10px;
-    padding-top: 14px;
-    border-top: 1px solid var(--ssf-gray-100);
-    font-size: 12.5px;
-    color: var(--ssf-gray-400);
-    text-decoration: none;
-}
-
-.ssf-app-exit:hover {
-    color: var(--ssf-gray-700);
 }
 
 .ssf-app-main {
@@ -2230,9 +2206,6 @@ body.ssf-shell-active #wpbody-content {
     }
     .ssf-app-nav-item {
         justify-content: center;
-    }
-    .ssf-app-exit {
-        font-size: 0;
     }
 }
 
