@@ -2078,8 +2078,6 @@ body.ssf-pdf-exporting .ssf-report {
 .ssf-app-shell {
     display: flex;
     align-items: stretch;
-    height: calc(100vh - 130px);
-    min-height: 520px;
     margin: 20px 20px 20px 0;
     border: 1px solid var(--ssf-gray-200);
     border-radius: var(--ssf-radius);
@@ -2090,6 +2088,13 @@ body.ssf-pdf-exporting .ssf-report {
     -webkit-font-smoothing: antialiased;
 }
 
+/* No fixed/viewport height on purpose — the box sizes to whatever the
+   taller of the two flex children (sidebar nav list vs. page content)
+   actually needs, via align-items: stretch, and the browser scrolls the
+   whole page normally like any other admin screen. A forced height here
+   previously made the box nearly full-viewport-tall even on short pages
+   (e.g. Dashboard), leaving a large empty gap before the WordPress
+   footer. */
 .ssf-app-sidebar {
     width: 220px;
     flex-shrink: 0;
@@ -2097,7 +2102,6 @@ body.ssf-pdf-exporting .ssf-report {
     flex-direction: column;
     border-right: 1px solid var(--ssf-gray-200);
     padding: 16px 10px 14px;
-    overflow-y: auto;
     background: var(--ssf-gray-50);
 }
 
@@ -2185,7 +2189,6 @@ body.ssf-pdf-exporting .ssf-report {
 
 .ssf-app-content {
     flex: 1;
-    overflow-y: auto;
     padding: 28px 32px 60px;
     animation: ssf-page-in 0.3s var(--ssf-ease) both;
 }
