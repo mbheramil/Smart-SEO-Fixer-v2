@@ -4946,25 +4946,38 @@ class SSF_Ajax {
         $allowed_types = [
             'bulk_ai_fix', 'bulk_schema', 'orphan_fix_batch',
             'not_indexed_ai_fix', 'bulk_404_redirect',
+            'indexability_fix', 'bulk_alt_text', 'regenerate_alt_text', 'bulk_reanalyze',
         ];
-        
+
         $job_type = sanitize_key($_POST['job_type'] ?? '');
         if (!in_array($job_type, $allowed_types, true)) {
             wp_send_json_error(['message' => __('Invalid job type.', 'smart-seo-fixer')]);
         }
-        
-        $items = isset($_POST['items']) ? array_values(array_filter(array_map('sanitize_text_field', (array) $_POST['items']))) : [];
-        if (empty($items)) {
-            wp_send_json_error(['message' => __('No items to process.', 'smart-seo-fixer')]);
-        }
-        
+
         $payload = [];
         if (isset($_POST['payload']) && is_array($_POST['payload'])) {
             foreach ($_POST['payload'] as $k => $v) {
                 $payload[sanitize_key($k)] = sanitize_text_field($v);
             }
         }
-        
+
+        // Self-driving jobs (bulk_alt_text, regenerate_alt_text, bulk_reanalyze)
+        // pull their own batches from the DB each tick — they don't need a
+        // real item list from the client, just a total count to size the
+        // progress bar against.
+        if (in_array($job_type, SSF_Job_Queue::SELF_DRIVING_TYPES, true)) {
+            $total = SSF_Job_Queue::estimate_self_driving_total($job_type, $payload);
+            if ($total <= 0) {
+                wp_send_json_error(['message' => __('Nothing to process.', 'smart-seo-fixer')]);
+            }
+            $items = range(1, $total);
+        } else {
+            $items = isset($_POST['items']) ? array_values(array_filter(array_map('sanitize_text_field', (array) $_POST['items']))) : [];
+            if (empty($items)) {
+                wp_send_json_error(['message' => __('No items to process.', 'smart-seo-fixer')]);
+            }
+        }
+
         $job_id = SSF_Job_Queue::create($job_type, $items, $payload);
         
         if (is_wp_error($job_id)) {
@@ -5029,8 +5042,12 @@ class SSF_Ajax {
         if (in_array($job->status, ['completed', 'failed', 'cancelled'])) {
             $data['results'] = $job->results;
             $data['error_message'] = $job->error_message;
+        } elseif (class_exists('SSF_Job_Queue') && in_array($job->job_type, SSF_Job_Queue::SELF_DRIVING_TYPES, true)) {
+            // These accumulate a small running stats object (not a per-item
+            // list), so it's cheap to show live rather than only at the end.
+            $data['results'] = $job->results;
         }
-        
+
         wp_send_json_success($data);
     }
     

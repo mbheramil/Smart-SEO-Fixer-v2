@@ -26,7 +26,13 @@ class SSF_Job_Queue {
     
     const BATCH_SIZE = 5;
     const CRON_HOOK  = 'ssf_process_job_queue';
-    
+
+    // Job types that don't work from a pre-enumerated item list — they pull
+    // their own next batch from the DB each tick (missing-alt scan, regen
+    // pass, unanalyzed-posts scan) and track progress via a "remaining"
+    // count instead of slicing $job->items. See process_self_driving_job().
+    const SELF_DRIVING_TYPES = ['bulk_alt_text', 'regenerate_alt_text', 'bulk_reanalyze'];
+
     /**
      * Get the jobs table name
      */
@@ -259,7 +265,15 @@ class SSF_Job_Queue {
         if (class_exists('SSF_History')) {
             SSF_History::set_source('bulk');
         }
-        
+
+        // Self-driving jobs (bulk_alt_text, regenerate_alt_text, bulk_reanalyze)
+        // don't slice $job->items — they pull their own next batch from the DB
+        // each tick and report progress via a "remaining" count instead.
+        if (in_array($job->job_type, self::SELF_DRIVING_TYPES, true)) {
+            self::process_self_driving_job($job);
+            return;
+        }
+
         // Determine which items still need processing
         $processed_count = intval($job->processed_items);
 
@@ -366,6 +380,237 @@ class SSF_Job_Queue {
         // OpenAI/Claude/Gemini bulk runs would stall at 0/N waiting for cron
         // on low-traffic sites.
         if (!$job_completed) {
+            self::spawn_next_tick();
+        }
+    }
+
+    /**
+     * Estimate the total item count for a self-driving job at creation time,
+     * so the caller has something to pass as $items (its count becomes
+     * total_items for progress display). See SELF_DRIVING_TYPES.
+     *
+     * @param string $job_type
+     * @param array  $payload
+     * @return int
+     */
+    public static function estimate_self_driving_total($job_type, $payload) {
+        switch ($job_type) {
+            case 'bulk_alt_text':
+                return class_exists('SSF_Image_SEO') ? SSF_Image_SEO::count_missing_alt() : 0;
+
+            case 'regenerate_alt_text':
+                return class_exists('SSF_Image_SEO') ? SSF_Image_SEO::count_regen_targets() : 0;
+
+            case 'bulk_reanalyze':
+                return self::count_reanalyze_targets(($payload['mode'] ?? 'unanalyzed') === 'all' ? 'all' : 'unanalyzed');
+
+            default:
+                return 0;
+        }
+    }
+
+    /**
+     * True if a payload flag looks truthy. Job payloads round-trip through
+     * wp_json_encode/json_decode and (for dispatch_job callers) sanitize_text_field,
+     * so booleans usually arrive as the strings '1'/'true'/'0'/'false'.
+     */
+    private static function payload_flag($payload, $key, $default) {
+        if (!isset($payload[$key])) {
+            return $default;
+        }
+        return in_array($payload[$key], [1, '1', true, 'true'], true);
+    }
+
+    /**
+     * Count posts a 'bulk_reanalyze' job would still need to touch, using the
+     * exact same predicate as run_reanalyze_batch() so total_items matches
+     * what the batches will actually work through.
+     *
+     * @param string $mode 'all' or 'unanalyzed'
+     * @return int
+     */
+    private static function count_reanalyze_targets($mode) {
+        global $wpdb;
+        $post_types = Smart_SEO_Fixer::get_option('post_types', ['post', 'page']);
+        $post_types_str = "'" . implode("','", array_map('esc_sql', $post_types)) . "'";
+
+        if ($mode === 'all') {
+            return (int) $wpdb->get_var("
+                SELECT COUNT(*) FROM {$wpdb->posts}
+                WHERE post_status = 'publish' AND post_type IN ($post_types_str)
+            ");
+        }
+
+        $table = $wpdb->prefix . 'ssf_seo_scores';
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table'") !== $table) {
+            return (int) $wpdb->get_var("
+                SELECT COUNT(*) FROM {$wpdb->posts}
+                WHERE post_status = 'publish' AND post_type IN ($post_types_str)
+            ");
+        }
+
+        return (int) $wpdb->get_var("
+            SELECT COUNT(*) FROM {$wpdb->posts} p
+            LEFT JOIN $table s ON p.ID = s.post_id
+            WHERE p.post_status = 'publish' AND p.post_type IN ($post_types_str)
+            AND s.post_id IS NULL
+        ");
+    }
+
+    /**
+     * Run one offset-based batch of re-analysis. Mirrors the batch-mode branch
+     * of SSF_Ajax::bulk_analyze() so both the direct AJAX call (small/manual
+     * runs) and the background job (large "re-analyze everything" runs) use
+     * identical selection logic.
+     *
+     * @param int    $offset
+     * @param int    $batch_size
+     * @param string $mode 'all' or 'unanalyzed'
+     * @return array{processed: int, done: bool}
+     */
+    private static function run_reanalyze_batch($offset, $batch_size, $mode) {
+        global $wpdb;
+        $post_types = Smart_SEO_Fixer::get_option('post_types', ['post', 'page']);
+        $post_types_str = "'" . implode("','", array_map('esc_sql', $post_types)) . "'";
+
+        if ($mode === 'all') {
+            $total = (int) $wpdb->get_var("
+                SELECT COUNT(*) FROM {$wpdb->posts}
+                WHERE post_status = 'publish' AND post_type IN ($post_types_str)
+            ");
+            $posts = $wpdb->get_col($wpdb->prepare("
+                SELECT ID FROM {$wpdb->posts}
+                WHERE post_status = 'publish' AND post_type IN ($post_types_str)
+                ORDER BY ID ASC LIMIT %d OFFSET %d
+            ", $batch_size, $offset));
+        } else {
+            $table = $wpdb->prefix . 'ssf_seo_scores';
+            $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") === $table;
+
+            if ($table_exists) {
+                $total = (int) $wpdb->get_var("
+                    SELECT COUNT(*) FROM {$wpdb->posts} p
+                    LEFT JOIN $table s ON p.ID = s.post_id
+                    WHERE p.post_status = 'publish' AND p.post_type IN ($post_types_str)
+                    AND s.post_id IS NULL
+                ");
+                $posts = $wpdb->get_col($wpdb->prepare("
+                    SELECT p.ID FROM {$wpdb->posts} p
+                    LEFT JOIN $table s ON p.ID = s.post_id
+                    WHERE p.post_status = 'publish' AND p.post_type IN ($post_types_str)
+                    AND s.post_id IS NULL
+                    ORDER BY p.ID ASC LIMIT %d OFFSET %d
+                ", $batch_size, $offset));
+            } else {
+                $total = (int) $wpdb->get_var("
+                    SELECT COUNT(*) FROM {$wpdb->posts}
+                    WHERE post_status = 'publish' AND post_type IN ($post_types_str)
+                ");
+                $posts = $wpdb->get_col($wpdb->prepare("
+                    SELECT ID FROM {$wpdb->posts}
+                    WHERE post_status = 'publish' AND post_type IN ($post_types_str)
+                    ORDER BY ID ASC LIMIT %d OFFSET %d
+                ", $batch_size, $offset));
+            }
+        }
+
+        if (class_exists('SSF_Analyzer')) {
+            $analyzer = new SSF_Analyzer();
+            foreach ($posts as $post_id) {
+                if (get_post($post_id)) {
+                    $analyzer->analyze_post($post_id);
+                }
+            }
+        }
+
+        $done = (($offset + $batch_size) >= $total) || empty($posts);
+
+        return ['processed' => count($posts), 'done' => $done];
+    }
+
+    /**
+     * Process one tick of a self-driving job (bulk_alt_text, regenerate_alt_text,
+     * bulk_reanalyze) — these don't have a fixed item list to slice; each tick
+     * pulls its own next batch from the DB and reports how much is left.
+     *
+     * @param object $job
+     */
+    private static function process_self_driving_job($job) {
+        global $wpdb;
+        $table = self::table();
+        $payload = $job->payload;
+        $processed_so_far = intval($job->processed_items);
+        $total = intval($job->total_items);
+
+        $use_ai = self::payload_flag($payload, 'use_ai', true);
+        $batch_size = max(1, min(10, intval($payload['batch_size'] ?? ($use_ai ? 5 : 100))));
+
+        $new_processed = $processed_so_far;
+        $done = true;
+        $stats = is_array($job->results) ? $job->results : [];
+
+        switch ($job->job_type) {
+            case 'bulk_alt_text':
+            case 'regenerate_alt_text':
+                if ($job->job_type === 'bulk_alt_text') {
+                    $result = class_exists('SSF_Image_SEO')
+                        ? SSF_Image_SEO::bulk_generate_alt_text($batch_size, $use_ai)
+                        : ['remaining' => 0, 'done' => true];
+                } else {
+                    $only_generated = self::payload_flag($payload, 'only_generated', true);
+                    // Only the first tick of the job starts a fresh pass; every
+                    // later tick continues it (mirrors the AJAX handler's
+                    // new_pass flag, keyed off whether we've processed anything yet).
+                    $start_new_pass = ($processed_so_far === 0);
+                    $result = class_exists('SSF_Image_SEO')
+                        ? SSF_Image_SEO::regenerate_alt_text($batch_size, $use_ai, $only_generated, $start_new_pass)
+                        : ['remaining' => 0, 'done' => true];
+                }
+
+                $new_processed = max(0, $total - intval($result['remaining'] ?? 0));
+                $done = !empty($result['done']);
+
+                // Accumulate stats across ticks so the poll response can show
+                // the same breakdown the old client-side loop used to build.
+                foreach (['updated', 'skipped', 'by_ai', 'by_filename', 'unchanged', 'preserved'] as $key) {
+                    $stats[$key] = intval($stats[$key] ?? 0) + intval($result[$key] ?? 0);
+                }
+                if (!empty($result['why_no_ai']) && empty($stats['why_no_ai'])) {
+                    $stats['why_no_ai'] = $result['why_no_ai'];
+                }
+                if (!empty($result['last_error'])) {
+                    $stats['last_error'] = $result['last_error'];
+                }
+                $stats['samples'] = array_slice(array_merge($stats['samples'] ?? [], $result['samples'] ?? []), 0, 5);
+                break;
+
+            case 'bulk_reanalyze':
+                $mode = ($payload['mode'] ?? 'unanalyzed') === 'all' ? 'all' : 'unanalyzed';
+                $result = self::run_reanalyze_batch($processed_so_far, 10, $mode);
+                $new_processed = $processed_so_far + intval($result['processed']);
+                $done = !empty($result['done']);
+                break;
+        }
+
+        // Never let a miscount push processed past total or backwards.
+        $new_processed = max($processed_so_far, min($total, $new_processed));
+
+        $update = ['processed_items' => $new_processed, 'results' => wp_json_encode($stats)];
+        if ($done) {
+            $update['status'] = self::STATUS_COMPLETED;
+            $update['completed_at'] = current_time('mysql');
+
+            if (class_exists('SSF_Logger')) {
+                SSF_Logger::info(sprintf('Job #%d completed: %s (%d processed)', $job->id, $job->job_type, $new_processed), 'queue');
+            }
+        }
+
+        $wpdb->update($table, $update, ['id' => $job->id]);
+
+        if ($done) {
+            self::clear_progress_snapshot($job->id);
+            self::cleanup();
+        } else {
             self::spawn_next_tick();
         }
     }
@@ -715,7 +960,10 @@ class SSF_Job_Queue {
                 
             case 'bulk_404_redirect':
                 return self::process_404_redirect($item_id, $payload);
-                
+
+            case 'indexability_fix':
+                return self::process_indexability_fix($item_id, $payload);
+
             default:
                 return new WP_Error('unknown_type', sprintf('Unknown job type: %s', $job_type));
         }
@@ -835,17 +1083,58 @@ class SSF_Job_Queue {
     }
     
     /**
-     * Process a single orphan page fix
+     * Process a single orphan page fix — delegates to the already-constructed
+     * SSF_Search_Console instance (not a fresh `new`) so find_fallback_page()
+     * and friends see the same init_settings() state as a normal request.
      */
     private static function process_orphan_fix($post_id, $payload) {
-        // Delegate to the search console class if available
-        if (!class_exists('SSF_Search_Console')) {
+        $console = self::get_search_console();
+        if (!$console) {
             return new WP_Error('no_module', 'Search Console module not available');
         }
-        
-        // The orphan fix is complex — we simulate what the AJAX handler does
-        // For now, return a placeholder; the actual fix logic is in class-search-console.php
-        return new WP_Error('not_implemented', 'Orphan fix via queue not yet implemented');
+
+        $result = $console->apply_orphan_fix(intval($post_id));
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        if (empty($result['linked'])) {
+            return new WP_Error('not_linked', $result['message'] ?? 'Could not find a link placement');
+        }
+
+        return $result['message'];
+    }
+
+    /**
+     * Process a single indexability-issue fix (payload['fix_type'] applies to
+     * every item in the job — the UI groups posts by issue before dispatching).
+     */
+    private static function process_indexability_fix($post_id, $payload) {
+        $console = self::get_search_console();
+        if (!$console) {
+            return new WP_Error('no_module', 'Search Console module not available');
+        }
+
+        $fix_type = sanitize_text_field($payload['fix_type'] ?? '');
+        $result = $console->apply_indexability_fix(intval($post_id), $fix_type);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return $result['message'];
+    }
+
+    /**
+     * The already-constructed SSF_Search_Console instance from the main
+     * plugin bootstrap, if available. Reusing it (instead of `new`) matters
+     * because its constructor sets state on 'init' that a fresh instance
+     * built mid-request would miss.
+     */
+    private static function get_search_console() {
+        if (!class_exists('Smart_SEO_Fixer') || !class_exists('SSF_Search_Console')) {
+            return null;
+        }
+        $instance = Smart_SEO_Fixer::instance();
+        return !empty($instance->search_console) ? $instance->search_console : null;
     }
     
     /**

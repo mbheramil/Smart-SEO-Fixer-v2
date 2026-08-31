@@ -591,10 +591,6 @@ jQuery(document).ready(function($) {
         if (fixType === 'orphaned_pages') { return; }
 
         var items = $btn.data('items') || [];
-        var index = 0;
-        var okCount = 0;
-        var failCount = 0;
-        var firstError = '';
 
         if (!items.length) { return; }
         SSF.confirm('<?php echo esc_js(__('This will AI-generate missing SEO data for all listed pages. Continue?', 'smart-seo-fixer')); ?>', function() {
@@ -618,51 +614,40 @@ jQuery(document).ready(function($) {
                 }
             }
 
-            function fixNext() {
-                if (index >= items.length) {
+            $btn.html('<span class="ssf-thinking"><?php echo esc_js(__('Fixing...', 'smart-seo-fixer')); ?></span>');
+
+            // Background job queue instead of a per-post client loop, so a
+            // large batch keeps running server-side even if this tab is closed.
+            SSF.runJob('indexability_fix', items, {fix_type: fixType}, {
+                onProgress: function(data) {
+                    $btn.html('<span class="ssf-thinking"><?php echo esc_js(__('Fixing', 'smart-seo-fixer')); ?> ' + data.processed + '/' + data.total + '...</span>');
+                },
+                onDone: function(data) {
+                    var okCount = data.total - data.failed;
                     var summary = okCount + ' <?php echo esc_js(__('fixed', 'smart-seo-fixer')); ?>, ' +
-                                  failCount + ' <?php echo esc_js(__('failed', 'smart-seo-fixer')); ?>';
+                                  data.failed + ' <?php echo esc_js(__('failed', 'smart-seo-fixer')); ?>';
                     $btn.prop('disabled', false)
                         .html('<span class="dashicons dashicons-yes-alt"></span> ' + summary)
-                        .toggleClass('ssf-btn-fixed', failCount === 0);
+                        .toggleClass('ssf-btn-fixed', data.failed === 0);
+
+                    var firstError = '';
+                    (data.results || []).forEach(function(r) {
+                        var ok = r.status === 'success';
+                        markRow(r.item_id, ok, r.message);
+                        if (!ok && !firstError) { firstError = r.message; }
+                    });
                     // Surface WHY it failed — most often this is "AI not configured"
                     // or the Bedrock model isn't enabled for the account.
-                    if (failCount > 0 && firstError) {
+                    if (data.failed > 0 && firstError) {
                         SSF.alert('<?php echo esc_js(__('Some pages could not be fixed:', 'smart-seo-fixer')); ?>\n\n' + firstError);
                     }
                     loadGSCSummary();
-                    return;
+                },
+                onError: function(msg) {
+                    $btn.prop('disabled', false).html('<?php echo esc_js(__('Retry', 'smart-seo-fixer')); ?>');
+                    SSF.alert(msg);
                 }
-
-                $btn.html('<span class="dashicons dashicons-update ssf-spin"></span> <?php echo esc_js(__('Fixing', 'smart-seo-fixer')); ?> ' + (index + 1) + '/' + items.length + '...');
-
-                $.post(ssfAdmin.ajax_url, {
-                    action: 'ssf_fix_indexability_issue',
-                    nonce: ssfAdmin.nonce,
-                    fix_type: fixType,
-                    post_id: items[index]
-                }, function(response) {
-                    if (response.success && response.data && response.data.fixed && response.data.fixed.length > 0) {
-                        okCount++;
-                        markRow(items[index], true, response.data.message);
-                    } else {
-                        failCount++;
-                        var em = (response.data && response.data.message) ? response.data.message : '<?php echo esc_js(__('No changes made.', 'smart-seo-fixer')); ?>';
-                        if (!firstError) { firstError = em; }
-                        markRow(items[index], false, em);
-                    }
-                    index++;
-                    fixNext();
-                }).fail(function() {
-                    failCount++;
-                    if (!firstError) { firstError = '<?php echo esc_js(__('Request failed — check your connection.', 'smart-seo-fixer')); ?>'; }
-                    markRow(items[index], false, '<?php echo esc_js(__('Request failed', 'smart-seo-fixer')); ?>');
-                    index++;
-                    fixNext();
-                });
-            }
-
-            fixNext();
+            });
         });
     });
     

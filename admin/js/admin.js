@@ -45,6 +45,61 @@
         },
         
         /**
+         * Run a bulk operation through the background job queue instead of a
+         * client-side loop, so it keeps running on the server (via WP-Cron)
+         * even if the user navigates away or closes the tab. Polls for
+         * progress while the tab stays put; if it doesn't, the job still
+         * finishes — it just won't be shown here.
+         *
+         * @param {string} jobType
+         * @param {Array}  items     Ignored for self-driving job types
+         *                           (bulk_alt_text, regenerate_alt_text, bulk_reanalyze).
+         * @param {Object} payload   Flat key/value job options.
+         * @param {Object} callbacks {onProgress(data), onDone(data), onError(message)}
+         */
+        runJob: function(jobType, items, payload, callbacks) {
+            callbacks = callbacks || {};
+            var self = this;
+
+            this.ajax('ssf_dispatch_job', {
+                job_type: jobType,
+                items: items || [],
+                payload: payload || {}
+            }, function(resp) {
+                if (!resp || !resp.success) {
+                    var msg = (resp && resp.data && resp.data.message) ? resp.data.message : 'Could not start job.';
+                    if (callbacks.onError) callbacks.onError(msg);
+                    return;
+                }
+
+                var jobId = resp.data.job_id;
+
+                function poll() {
+                    self.ajax('ssf_poll_job', {job_id: jobId}, function(pollResp) {
+                        if (!pollResp || !pollResp.success) {
+                            var msg = (pollResp && pollResp.data && pollResp.data.message) ? pollResp.data.message : 'Lost track of the job.';
+                            if (callbacks.onError) callbacks.onError(msg);
+                            return;
+                        }
+
+                        var data = pollResp.data;
+                        if (callbacks.onProgress) callbacks.onProgress(data);
+
+                        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+                            if (callbacks.onDone) callbacks.onDone(data);
+                        } else {
+                            setTimeout(poll, 2000);
+                        }
+                    }, function(error) {
+                        if (callbacks.onError) callbacks.onError(error || 'Request failed');
+                    });
+                }
+
+                poll();
+            });
+        },
+
+        /**
          * Analyze a post
          */
         analyzePost: function(postId, callback) {
@@ -1007,59 +1062,38 @@
                 var $count = $('#ssf-reanalyze-count');
 
                 var originalBtn = $btn.html();
-                $btn.prop('disabled', true).html('<span class="dashicons dashicons-update ssf-spin"></span> Re-analyzing…');
+                $btn.prop('disabled', true).html('<span class="ssf-thinking">Re-analyzing…</span>');
                 $gen.prop('disabled', true);
                 $progress.show();
                 $bar.css('width', '0%');
-                $label.text('Starting…');
+                $label.text('Starting… (runs in the background — safe to leave this page)');
                 $count.text('0 / 0');
 
-                var offset = 0;
-                var batchSize = 10;
-                var total = 0;
-                var processed = 0;
-
-                function step() {
-                    $.post(ssfAdmin.ajax_url, {
-                        action: 'ssf_bulk_analyze',
-                        nonce: ssfAdmin.nonce,
-                        offset: offset,
-                        batch_size: batchSize,
-                        analyze_mode: 'all'
-                    }).done(function(resp) {
-                        if (!resp || !resp.success) {
-                            var msg = (resp && resp.data && resp.data.message) ? resp.data.message : 'Analyze failed.';
-                            $label.text('Error: ' + msg);
-                            $btn.prop('disabled', false).html(originalBtn);
-                            $gen.prop('disabled', false);
-                            return;
-                        }
-                        var data = resp.data || {};
-                        total = parseInt(data.total, 10) || total;
-                        processed += parseInt(data.processed, 10) || 0;
-                        offset += batchSize;
-
-                        var pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
-                        $bar.css('width', pct + '%');
-                        $count.text(processed + ' / ' + total);
-                        $label.text('Re-analyzing pages… (' + pct + '%)');
-
-                        if (data.done) {
-                            $bar.css('width', '100%');
-                            $label.html('<span class="dashicons dashicons-yes-alt" style="color:#16a34a;"></span> Done — ' + processed + ' pages re-analyzed. Click <strong>Generate Report</strong> to see the updated score.');
-                            $btn.prop('disabled', false).html(originalBtn);
-                            $gen.prop('disabled', false);
+                // Goes through the background job queue (WP-Cron) instead of a
+                // client-side loop, so a full re-analyze keeps running even if
+                // this tab is closed or navigated away from.
+                SSF.runJob('bulk_reanalyze', [], {mode: 'all'}, {
+                    onProgress: function(data) {
+                        $bar.css('width', data.percent + '%');
+                        $count.text(data.processed + ' / ' + data.total);
+                        $label.text('Re-analyzing pages… (' + data.percent + '%)');
+                    },
+                    onDone: function(data) {
+                        $bar.css('width', '100%');
+                        if (data.status === 'completed') {
+                            $label.html('<span class="dashicons dashicons-yes-alt" style="color:#16a34a;"></span> Done — ' + data.processed + ' pages re-analyzed. Click <strong>Generate Report</strong> to see the updated score.');
                         } else {
-                            step();
+                            $label.text('Job ' + data.status + '.');
                         }
-                    }).fail(function(xhr) {
-                        $label.text('Network error: ' + (xhr.statusText || 'failed'));
                         $btn.prop('disabled', false).html(originalBtn);
                         $gen.prop('disabled', false);
-                    });
-                }
-
-                step();
+                    },
+                    onError: function(msg) {
+                        $label.text('Error: ' + msg);
+                        $btn.prop('disabled', false).html(originalBtn);
+                        $gen.prop('disabled', false);
+                    }
+                });
             });
         },
 
@@ -1148,50 +1182,37 @@
 
                 var postIds = res.data.post_ids;
                 var total = postIds.length;
-                var index = 0;
-                var successCount = 0;
-                var failCount = 0;
 
-                $status.text('Fixing 0 of ' + total + ' pages...');
+                $status.text('Fixing 0 of ' + total + ' pages... (runs in the background \u2014 safe to leave this page)');
 
-                function fixNext() {
-                    if (index >= total) {
-                        var pct = 100;
-                        $bar.css('width', pct + '%');
-                        $status.html('<strong>Done!</strong> ' + successCount + ' fixed, ' + failCount + ' failed out of ' + total + ' pages.');
+                // Background job queue instead of a per-post client loop, so
+                // this keeps running server-side even if the tab is closed.
+                SSF.runJob('bulk_ai_fix', postIds, {
+                    generate_title: options.generate_title ? '1' : '0',
+                    generate_desc: options.generate_desc ? '1' : '0',
+                    generate_keywords: options.generate_keywords ? '1' : '0',
+                    apply_to: options.overwrite ? 'all' : 'missing'
+                }, {
+                    onProgress: function(data) {
+                        $bar.css('width', data.percent + '%');
+                        $status.text('Fixing ' + data.processed + ' of ' + data.total + ' pages...');
+                    },
+                    onDone: function(data) {
+                        $bar.css('width', '100%');
+                        var successCount = data.total - data.failed;
+                        $status.html('<strong>Done!</strong> ' + successCount + ' fixed, ' + data.failed + ' failed out of ' + data.total + ' pages.');
                         $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes-alt"></span> Done');
-                        return;
+                        (data.results || []).forEach(function(r) {
+                            var ok = r.status === 'success';
+                            $log.append('<div class="ssf-fix-log-item ' + (ok ? 'ssf-fix-success' : 'ssf-fix-fail') + '">' +
+                                (ok ? '\u2705' : '\u274c') + ' #' + r.item_id + ' &mdash; ' + SSF_ClientReport.esc(r.message) + '</div>');
+                        });
+                    },
+                    onError: function(msg) {
+                        $status.text('Error: ' + msg);
+                        $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic"></span> AI Fix');
                     }
-
-                    $.post(ssfAdmin.ajax_url, {
-                        action: 'ssf_ai_fix_single',
-                        nonce: ssfAdmin.nonce,
-                        post_id: postIds[index],
-                        options: options
-                    }, function(resp) {
-                        index++;
-                        var pct = Math.round((index / total) * 100);
-                        $bar.css('width', pct + '%');
-                        $status.text('Fixing ' + index + ' of ' + total + ' pages...');
-
-                        if (resp.success) {
-                            successCount++;
-                            $log.prepend('<div class="ssf-fix-log-item ssf-fix-success">\u2705 ' + SSF_ClientReport.esc(resp.data.title) + ' &mdash; ' + SSF_ClientReport.esc(resp.data.message) + '</div>');
-                        } else {
-                            failCount++;
-                            $log.prepend('<div class="ssf-fix-log-item ssf-fix-fail">\u274c ' + SSF_ClientReport.esc(resp.data ? resp.data.message : 'Unknown error') + '</div>');
-                        }
-
-                        setTimeout(fixNext, 300);
-                    }).fail(function() {
-                        index++;
-                        failCount++;
-                        $log.prepend('<div class="ssf-fix-log-item ssf-fix-fail">\u274c Request failed for post #' + postIds[index - 1] + '</div>');
-                        setTimeout(fixNext, 300);
-                    });
-                }
-
-                fixNext();
+                });
             }).fail(function() {
                 $status.text('Failed to fetch pages. Please try again.');
                 $btn.prop('disabled', false).html('<span class="dashicons dashicons-admin-generic"></span> AI Fix');
@@ -1226,15 +1247,9 @@
         var totalUnchanged = 0;
         var totalPreserved = 0;
         var whyNoAi        = '';
-        var startTotal     = 0;
         var running        = false;
         var cancelled      = false;
         var mode           = 'missing';   // 'missing' | 'regenerate'
-        var firstCall      = true;
-        // Hard safety cap: even if the server keeps reporting work, never loop
-        // unbounded. The old version could recurse forever on undescribable files.
-        var MAX_BATCHES  = 400;
-        var batches      = 0;
 
         function esc(s) {
             return $('<div>').text(s == null ? '' : String(s)).html();
@@ -1291,11 +1306,12 @@
             return parts.join(', ');
         }
 
+        var currentJobId = null;
+
         function startRun(runMode) {
             running        = true;
             cancelled      = false;
             mode           = runMode;
-            firstCall      = true;
             totalUpdated   = 0;
             totalSkipped   = 0;
             totalByAi      = 0;
@@ -1303,17 +1319,105 @@
             totalUnchanged = 0;
             totalPreserved = 0;
             whyNoAi        = '';
-            batches        = 0;
-            startTotal     = 0;
+            currentJobId   = null;
             $btn.prop('disabled', true);
             $regenBtn.prop('disabled', true);
-            $stop.show();
+            $stop.show().prop('disabled', false).text('Stop');
             $samples.empty();
             $progress.show();
             $bar.css('width', '0%');
-            $status.html('<span class="spinner is-active" style="float:none;margin:0 5px 0 0;"></span> Starting…');
-            processBatch();
+            $status.html('<span class="ssf-thinking">Starting… (runs in the background — safe to leave this page)</span>');
+
+            var jobType = (runMode === 'regenerate') ? 'regenerate_alt_text' : 'bulk_alt_text';
+            var payload = {use_ai: useAi() ? '1' : '0'};
+            if (runMode === 'regenerate') {
+                payload.only_generated = $('#ssf-regen-alt-overwrite-all').is(':checked') ? '0' : '1';
+            }
+
+            // Background job queue instead of a recursive $.post loop, so a
+            // large run keeps going (via WP-Cron) even if this tab is closed.
+            SSF.ajax('ssf_dispatch_job', {job_type: jobType, items: [], payload: payload}, function(resp) {
+                if (!resp || !resp.success) {
+                    var msg = (resp && resp.data && resp.data.message) ? resp.data.message : 'Could not start.';
+                    finish('<span style="color:#d63638;">' + esc(msg) + '</span>');
+                    return;
+                }
+                currentJobId = resp.data.job_id;
+                poll();
+            });
         }
+
+        function poll() {
+            if (!currentJobId) { return; }
+
+            SSF.ajax('ssf_poll_job', {job_id: currentJobId}, function(resp) {
+                if (!resp || !resp.success) {
+                    var msg = (resp && resp.data && resp.data.message) ? resp.data.message : 'Lost track of the job.';
+                    finish('<span style="color:#d63638;">' + esc(msg) + '</span>');
+                    return;
+                }
+
+                var d = resp.data || {};
+                var s = d.results || {};
+
+                totalUpdated   = intval2(s.updated);
+                totalSkipped   = intval2(s.skipped);
+                totalByAi      = intval2(s.by_ai);
+                totalByFile    = intval2(s.by_filename);
+                totalUnchanged = intval2(s.unchanged);
+                totalPreserved = intval2(s.preserved);
+                whyNoAi        = s.why_no_ai || '';
+
+                if (s.samples && s.samples.length) {
+                    $samples.empty();
+                    s.samples.forEach(function(sm) {
+                        var badge = sm.source === 'ai'
+                            ? '<span style="color:#00a32a;font-weight:600;">AI</span>'
+                            : '<span style="color:#996800;font-weight:600;" title="' +
+                              esc(sm.reason ? 'AI not used: ' + sm.reason : 'Derived from the filename') +
+                              '">filename</span>';
+                        var before = sm.old
+                            ? '<span style="color:#8c8f94;text-decoration:line-through;">' + esc(sm.old) + '</span> &rarr; '
+                            : '';
+                        $samples.append(
+                            '<div style="font-size:12px;margin-top:4px;">' + badge +
+                            ' &mdash; ' + before + '<em>' + esc(sm.alt) + '</em></div>'
+                        );
+                    });
+                }
+
+                $bar.css('width', d.percent + '%');
+
+                if (d.status === 'cancelled') {
+                    finish('<span style="color:#996800;font-weight:600;">Stopped. ' + summary() + '.</span>');
+                    return;
+                }
+
+                if (d.status === 'completed' || d.status === 'failed') {
+                    $bar.css('width', '100%');
+                    var extra = '';
+                    if (whyNoAi) {
+                        extra += '<div style="margin-top:6px;padding:8px 10px;background:#fcf9e8;' +
+                                 'border-left:4px solid #dba617;font-weight:400;">' +
+                                 '<strong>AI vision was not used.</strong> ' + esc(whyNoAi) +
+                                 '</div>';
+                    }
+                    if (s.last_error && (!whyNoAi || whyNoAi.indexOf(s.last_error) === -1)) {
+                        extra += ' <span style="color:#d63638;">Last error: ' + esc(s.last_error) + '</span>';
+                    }
+                    finish('<span style="color:#00a32a;font-weight:600;">&#10003; Done! ' + summary() + '.</span>' + extra);
+                    return;
+                }
+
+                $status.html('<span class="ssf-thinking">' + summary() + ' &mdash; ' +
+                             (d.total - d.processed) + ' remaining (' + d.percent + '%)…</span>');
+                setTimeout(poll, 2000);
+            }, function(error) {
+                finish('<span style="color:#d63638;">Request failed: ' + esc(error || '') + '. Click again to resume.</span>');
+            });
+        }
+
+        function intval2(n) { return parseInt(n, 10) || 0; }
 
         $btn.on('click', function() {
             if (running) return;
@@ -1335,115 +1439,11 @@
         });
 
         $stop.on('click', function() {
+            if (!currentJobId) { return; }
             cancelled = true;
             $stop.prop('disabled', true).text('Stopping…');
+            SSF.ajax('ssf_cancel_job', {job_id: currentJobId});
         });
-
-        function processBatch() {
-            if (cancelled) {
-                $stop.prop('disabled', false).text('Stop');
-                finish('<span style="color:#996800;font-weight:600;">Stopped. ' + summary() + '.</span>');
-                return;
-            }
-
-            if (++batches > MAX_BATCHES) {
-                finish('<span style="color:#996800;font-weight:600;">Stopped after ' + MAX_BATCHES +
-                       ' batches (safety limit). ' + summary() + '. Click again to continue.</span>');
-                return;
-            }
-
-            var payload = {
-                action: (mode === 'regenerate') ? 'ssf_regenerate_alt' : 'ssf_bulk_generate_alt',
-                nonce: ssfAdmin.nonce,
-                use_ai: useAi() ? '1' : '0'
-            };
-            if (mode === 'regenerate') {
-                payload.overwrite_all = $('#ssf-regen-alt-overwrite-all').is(':checked') ? '1' : '0';
-                // Only the first request opens a new pass; the rest continue it.
-                payload.new_pass = firstCall ? '1' : '0';
-            }
-            firstCall = false;
-
-            $.post(ssfAdmin.ajax_url, payload).done(function(res) {
-                if (!res || !res.success) {
-                    var msg = (res && res.data && res.data.message) ? res.data.message : 'Failed.';
-                    finish('<span style="color:#d63638;">' + esc(msg) + '</span>');
-                    return;
-                }
-
-                var d = res.data || {};
-                totalUpdated   += (d.updated     || 0);
-                totalSkipped   += (d.skipped     || 0);
-                totalByAi      += (d.by_ai       || 0);
-                totalByFile    += (d.by_filename || 0);
-                totalUnchanged += (d.unchanged   || 0);
-                totalPreserved += (d.preserved   || 0);
-
-                // Keep the first explanation of why AI did not describe the
-                // images — otherwise a run that "succeeded" gives no clue that
-                // every description was guessed from a filename.
-                if (!whyNoAi && d.why_no_ai) { whyNoAi = d.why_no_ai; }
-
-                paintStats(d.stats);
-
-                // Establish the denominator on the first response so the bar
-                // reflects real progress rather than jumping around.
-                if (startTotal === 0) {
-                    startTotal = (d.updated || 0) + (d.skipped || 0) + (d.unchanged || 0) +
-                                 (d.preserved || 0) + (d.remaining || 0);
-                }
-
-                // Show a few real examples so the quality is visible immediately.
-                if (d.samples && d.samples.length && $samples.children().length < 5) {
-                    d.samples.forEach(function(s) {
-                        if ($samples.children().length >= 5) { return; }
-                        var badge = s.source === 'ai'
-                            ? '<span style="color:#00a32a;font-weight:600;">AI</span>'
-                            : '<span style="color:#996800;font-weight:600;" title="' +
-                              esc(s.reason ? 'AI not used: ' + s.reason : 'Derived from the filename') +
-                              '">filename</span>';
-                        var before = s.old
-                            ? '<span style="color:#8c8f94;text-decoration:line-through;">' + esc(s.old) + '</span> &rarr; '
-                            : '';
-                        $samples.append(
-                            '<div style="font-size:12px;margin-top:4px;">' + badge +
-                            ' &mdash; ' + before + '<em>' + esc(s.alt) + '</em></div>'
-                        );
-                    });
-                }
-
-                var doneCount = startTotal - (d.remaining || 0);
-                var pct = startTotal > 0 ? Math.min(100, Math.round((doneCount / startTotal) * 100)) : 100;
-                $bar.css('width', pct + '%');
-
-                if (d.done) {
-                    $bar.css('width', '100%');
-                    var extra = '';
-
-                    // A run can finish "successfully" while every description
-                    // was guessed from a filename. Say so, and say why.
-                    if (whyNoAi) {
-                        extra += '<div style="margin-top:6px;padding:8px 10px;background:#fcf9e8;' +
-                                 'border-left:4px solid #dba617;font-weight:400;">' +
-                                 '<strong>AI vision was not used.</strong> ' + esc(whyNoAi) +
-                                 '</div>';
-                    }
-                    if (d.last_error && (!whyNoAi || whyNoAi.indexOf(d.last_error) === -1)) {
-                        extra += ' <span style="color:#d63638;">Last error: ' + esc(d.last_error) + '</span>';
-                    }
-                    finish('<span style="color:#00a32a;font-weight:600;">&#10003; Done! ' + summary() + '.</span>' + extra);
-                    return;
-                }
-
-                $status.html('<span class="spinner is-active" style="float:none;margin:0 5px 0 0;"></span> ' +
-                             summary() + ' &mdash; ' + (d.remaining || 0) + ' remaining (' + pct + '%)…');
-                processBatch();
-            }).fail(function(xhr) {
-                var detail = (xhr && xhr.status) ? ' (HTTP ' + xhr.status + ')' : '';
-                finish('<span style="color:#d63638;">Request failed' + detail +
-                       '. ' + summary() + '. Click again to resume.</span>');
-            });
-        }
 
         $('#ssf-alt-stats-refresh').on('click', function() {
             loadStats($(this));

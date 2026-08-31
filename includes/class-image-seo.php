@@ -886,6 +886,20 @@ class SSF_Image_SEO {
     }
 
     /**
+     * Count images still eligible for the current regenerate-alt-text pass
+     * (same predicate regenerate_alt_text() batches against). Used by the
+     * background job queue to report progress without an explicit item list.
+     *
+     * @return int
+     */
+    public static function count_regen_targets() {
+        global $wpdb;
+        $token = (string) get_option(self::REGEN_PASS_OPTION, '1');
+        list($from_where, $params) = self::regen_where($token);
+        return (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) {$from_where}", $params));
+    }
+
+    /**
      * Media-library alt text statistics for the settings screen.
      *
      * Counted in one query so the numbers are always internally consistent

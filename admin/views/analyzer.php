@@ -275,49 +275,27 @@ jQuery(document).ready(function($) {
     function runAnalyzer(mode) {
         $('#analyzer-progress').show();
         $('html, body').animate({ scrollTop: $('#analyzer-progress').offset().top - 40 }, 300);
+        $('#analyzer-progress-title').text('<?php echo esc_js(__('Starting... (runs in the background — safe to leave this page)', 'smart-seo-fixer')); ?>');
 
-        var offset = 0, batchSize = 5, processed = 0, total = 0;
-
-        function next() {
-            $.post(ssfAdmin.ajax_url, {
-                action: 'ssf_bulk_analyze',
-                nonce: ssfAdmin.nonce,
-                offset: offset,
-                batch_size: batchSize,
-                analyze_mode: mode
-            }, function(response) {
-                if (response.success) {
-                    processed += response.data.processed || 0;
-                    total = response.data.total || total;
-                    var pct = total > 0 ? Math.round((processed / total) * 100) : 100;
-                    $('#analyzer-progress-fill').css('width', pct + '%');
-                    $('#analyzer-progress-text').text(pct + '% (' + processed + '/' + total + ')');
-
-                    if (response.data.log) {
-                        response.data.log.forEach(function(e) {
-                            $('#analyzer-progress-log').append('<div>' + e + '</div>');
-                        });
-                        var el = document.getElementById('analyzer-progress-log');
-                        el.scrollTop = el.scrollHeight;
-                    }
-
-                    if (response.data.done) {
-                        $('#analyzer-progress-title').html('<span class="dashicons dashicons-yes-alt" style="color:#059669;"></span> <?php echo esc_js(__('Complete! Refreshing...', 'smart-seo-fixer')); ?>');
-                        setTimeout(function() { location.reload(); }, 1500);
-                    } else {
-                        offset += batchSize;
-                        setTimeout(next, 300);
-                    }
+        // Background job queue instead of a client-side offset loop, so this
+        // keeps running via WP-Cron even if the tab is closed.
+        SSF.runJob('bulk_reanalyze', [], {mode: mode}, {
+            onProgress: function(data) {
+                $('#analyzer-progress-fill').css('width', data.percent + '%');
+                $('#analyzer-progress-text').text(data.percent + '% (' + data.processed + '/' + data.total + ')');
+            },
+            onDone: function(data) {
+                if (data.status === 'completed') {
+                    $('#analyzer-progress-title').html('<span class="dashicons dashicons-yes-alt" style="color:#059669;"></span> <?php echo esc_js(__('Complete! Refreshing...', 'smart-seo-fixer')); ?>');
+                    setTimeout(function() { location.reload(); }, 1500);
                 } else {
-                    $('#analyzer-progress-log').append('<div style="color:#dc2626;">Error: ' + esc((response.data && response.data.message) || 'Unknown') + '</div>');
+                    $('#analyzer-progress-log').append('<div style="color:#dc2626;">Job ' + data.status + '.</div>');
                 }
-            }).fail(function() {
-                $('#analyzer-progress-log').append('<div style="color:#dc2626;"><?php echo esc_js(__('Request failed. Retrying...', 'smart-seo-fixer')); ?></div>');
-                setTimeout(next, 2000);
-            });
-        }
-
-        next();
+            },
+            onError: function(msg) {
+                $('#analyzer-progress-log').append('<div style="color:#dc2626;">Error: ' + esc(msg) + '</div>');
+            }
+        });
     }
 
     $('#analyze-unanalyzed-btn').on('click', function() {

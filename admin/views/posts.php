@@ -707,61 +707,42 @@ jQuery(document).ready(function($) {
     
     function startBatchFix(postIds, options) {
         $('#progress-modal').show();
-        $('#progress-title').text('<?php esc_html_e('Fixing SEO with AI...', 'smart-seo-fixer'); ?>');
+        $('#progress-title').text('<?php esc_html_e('Fixing SEO with AI... (runs in the background — safe to leave this page)', 'smart-seo-fixer'); ?>');
         $('#progress-fill').css('width', '0%');
         $('#progress-text').text('0%');
         $('#progress-log').html('');
-        
-        var total = postIds.length;
-        var processed = 0;
-        var index = 0;
-        
-        function processNext() {
-            if (index >= postIds.length) {
+
+        // Background job queue instead of a per-post client loop, so this
+        // keeps running server-side even if the tab is closed.
+        SSF.runJob('bulk_ai_fix', postIds, {
+            generate_title: options.generate_title ? '1' : '0',
+            generate_desc: options.generate_desc ? '1' : '0',
+            generate_keywords: options.generate_keywords ? '1' : '0',
+            apply_to: options.overwrite ? 'all' : 'missing'
+        }, {
+            onProgress: function(data) {
+                $('#progress-fill').css('width', data.percent + '%');
+                $('#progress-text').text(data.percent + '% (' + data.processed + '/' + data.total + ')');
+            },
+            onDone: function(data) {
                 $('#progress-title').text('<?php esc_html_e('Complete!', 'smart-seo-fixer'); ?>');
+                $('#progress-fill').css('width', '100%');
+                (data.results || []).forEach(function(r) {
+                    var ok = r.status === 'success';
+                    $('#progress-log').append('<div' + (ok ? '' : ' style="color: #ef4444;"') + '>' +
+                        (ok ? '✅' : '❌') + ' #' + r.item_id + ' - ' + r.message + '</div>');
+                });
+                var logEl = document.getElementById('progress-log');
+                logEl.scrollTop = logEl.scrollHeight;
                 setTimeout(function() {
                     $('#progress-modal').hide();
                     location.reload();
                 }, 1500);
-                return;
+            },
+            onError: function(msg) {
+                $('#progress-log').append('<div style="color: #ef4444;">❌ ' + msg + '</div>');
             }
-            
-            var postId = postIds[index];
-            
-            $.post(ssfAdmin.ajax_url, {
-                action: 'ssf_ai_fix_single',
-                nonce: ssfAdmin.nonce,
-                post_id: postId,
-                options: options
-            }, function(response) {
-                processed++;
-                index++;
-                
-                var percent = Math.round((processed / total) * 100);
-                $('#progress-fill').css('width', percent + '%');
-                $('#progress-text').text(percent + '% (' + processed + '/' + total + ')');
-                
-                if (response.success) {
-                    $('#progress-log').append('<div>✅ ' + response.data.title + ' - ' + response.data.message + '</div>');
-                } else {
-                    $('#progress-log').append('<div style="color: #ef4444;">❌ Error: ' + (response.data.message || 'Unknown error') + '</div>');
-                }
-                
-                // Scroll log to bottom
-                var logEl = document.getElementById('progress-log');
-                logEl.scrollTop = logEl.scrollHeight;
-                
-                // Process next with small delay
-                setTimeout(processNext, 300);
-            }).fail(function() {
-                processed++;
-                index++;
-                $('#progress-log').append('<div style="color: #ef4444;">❌ Request failed for post ' + postId + '</div>');
-                setTimeout(processNext, 300);
-            });
-        }
-        
-        processNext();
+        });
     }
     
     function getScoreClass(score) {

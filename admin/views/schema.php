@@ -468,52 +468,47 @@ jQuery(document).ready(function($) {
             $btn.prop('disabled', true);
             $progress.show();
             $bar.css({'width':'0%','background':'#2271b1'});
-            $text.text('<?php echo esc_js(__('Starting...', 'smart-seo-fixer')); ?>');
+            $text.html('<span class="ssf-thinking"><?php echo esc_js(__('Starting... (runs in the background — safe to leave this page)', 'smart-seo-fixer')); ?></span>');
             $log.empty().show();
 
-            function processBatch(offset) {
-                $.post(ssfAdmin.ajax_url, {
-                    action: 'ssf_bulk_regenerate_schemas',
-                    nonce: ssfAdmin.nonce,
-                    mode: 'regenerate',
-                    offset: offset,
-                    batch_size: 2
-                }, function(response) {
-                    if (!response.success) {
-                        $text.text(response.data.message || '<?php echo esc_js(__('Error occurred.', 'smart-seo-fixer')); ?>');
-                        $btn.prop('disabled', false);
-                        return;
-                    }
+            // Fetch the post IDs first, then hand them to the background job
+            // queue instead of looping client-side — this keeps running via
+            // WP-Cron even if the tab is closed.
+            $.post(ssfAdmin.ajax_url, {
+                action: 'ssf_get_schema_list',
+                nonce: ssfAdmin.nonce
+            }, function(listResp) {
+                var ids = (listResp && listResp.success) ? listResp.data.items.map(function(i) { return i.id; }) : [];
+                if (!ids.length) {
+                    $text.text('<?php echo esc_js(__('No posts with custom schemas found.', 'smart-seo-fixer')); ?>');
+                    $btn.prop('disabled', false);
+                    return;
+                }
 
-                    var data = response.data;
-                    var newOffset = offset + data.processed;
-                    var pct = data.total > 0 ? Math.round((newOffset / data.total) * 100) : 100;
-
-                    $bar.css('width', pct + '%');
-                    $text.text(newOffset + ' / ' + data.total + ' <?php echo esc_js(__('posts processed', 'smart-seo-fixer')); ?> (' + pct + '%)');
-
-                    if (data.log && data.log.length) {
-                        data.log.forEach(function(entry) {
-                            $log.append('<div>' + entry + '</div>');
+                SSF.runJob('bulk_schema', ids, {mode: 'regenerate'}, {
+                    onProgress: function(data) {
+                        $bar.css('width', data.percent + '%');
+                        $text.text(data.processed + ' / ' + data.total + ' <?php echo esc_js(__('posts processed', 'smart-seo-fixer')); ?> (' + data.percent + '%)');
+                    },
+                    onDone: function(data) {
+                        $bar.css({'width':'100%','background':'#059669'});
+                        $text.text('<?php echo esc_js(__('Complete!', 'smart-seo-fixer')); ?> ' + data.processed + ' <?php echo esc_js(__('posts processed.', 'smart-seo-fixer')); ?>');
+                        (data.results || []).forEach(function(r) {
+                            $log.append('<div>#' + r.item_id + ' — ' + (r.status === 'success' ? r.message : ('<span style="color:#dc2626;">' + r.message + '</span>')) + '</div>');
                         });
                         $log.scrollTop($log[0].scrollHeight);
-                    }
-
-                    if (data.done) {
-                        $bar.css({'width':'100%','background':'#059669'});
-                        $text.text('<?php echo esc_js(__('Complete!', 'smart-seo-fixer')); ?> ' + newOffset + ' <?php echo esc_js(__('posts processed.', 'smart-seo-fixer')); ?>');
                         $btn.prop('disabled', false);
                         loadSchemaList();
-                    } else {
-                        processBatch(newOffset);
+                    },
+                    onError: function(msg) {
+                        $text.text(msg || '<?php echo esc_js(__('Error occurred.', 'smart-seo-fixer')); ?>');
+                        $btn.prop('disabled', false);
                     }
-                }).fail(function() {
-                    $text.text('<?php echo esc_js(__('Request failed. Please try again.', 'smart-seo-fixer')); ?>');
-                    $btn.prop('disabled', false);
                 });
-            }
-
-            processBatch(0);
+            }).fail(function() {
+                $text.text('<?php echo esc_js(__('Request failed. Please try again.', 'smart-seo-fixer')); ?>');
+                $btn.prop('disabled', false);
+            });
         });
     });
     

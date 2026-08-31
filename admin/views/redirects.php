@@ -293,8 +293,6 @@ jQuery(document).ready(function($) {
         if (!urls.length) return;
         
         var total = urls.length;
-        var done = 0;
-        var failed = 0;
         var $btn = $(this).prop('disabled', true);
         $('#ssf-bulk-redirect-cancel').prop('disabled', true);
         $('#ssf-bulk-progress-wrap').show();
@@ -302,19 +300,19 @@ jQuery(document).ready(function($) {
         $('#ssf-bulk-progress-bar').css({'width':'0%','background':'#2271b1'});
         $('#ssf-bulk-progress-text').text('0 / ' + total);
         $('#ssf-bulk-progress-pct').text('0%');
-        
-        function updateProgress() {
-            var pct = Math.round((done / total) * 100);
-            $('#ssf-bulk-progress-bar').css('width', pct + '%');
-            $('#ssf-bulk-progress-text').text(done + ' / ' + total);
-            $('#ssf-bulk-progress-pct').text(pct + '%');
-        }
-        
-        function addNext() {
-            if (done >= total) {
+
+        // Background job queue instead of a sequential $.post loop, so a
+        // large batch keeps running server-side even if this tab is closed.
+        SSF.runJob('bulk_404_redirect', urls, {redirect_to: redirectTo}, {
+            onProgress: function(data) {
+                $('#ssf-bulk-progress-bar').css('width', data.percent + '%');
+                $('#ssf-bulk-progress-text').text(data.processed + ' / ' + total);
+                $('#ssf-bulk-progress-pct').text(data.percent + '%');
+            },
+            onDone: function(data) {
                 $('#ssf-bulk-progress-bar').css({'width':'100%','background':'#059669'});
-                var msg = done + ' <?php echo esc_js(__('redirects created', 'smart-seo-fixer')); ?>';
-                if (failed > 0) msg += ' (' + failed + ' <?php echo esc_js(__('failed', 'smart-seo-fixer')); ?>)';
+                var msg = (data.total - data.failed) + ' <?php echo esc_js(__('redirects created', 'smart-seo-fixer')); ?>';
+                if (data.failed > 0) msg += ' (' + data.failed + ' <?php echo esc_js(__('failed', 'smart-seo-fixer')); ?>)';
                 $('#ssf-bulk-progress-status').text('✓ ' + msg).show();
                 $btn.prop('disabled', false).text('<?php echo esc_js(__('Done!', 'smart-seo-fixer')); ?>');
                 $('#ssf-bulk-redirect-cancel').prop('disabled', false).text('<?php echo esc_js(__('Close', 'smart-seo-fixer')); ?>');
@@ -327,15 +325,13 @@ jQuery(document).ready(function($) {
                     loadRedirects();
                     load404Log();
                 }, 1500);
-                return;
+            },
+            onError: function(msg) {
+                $('#ssf-bulk-progress-status').text(msg).show();
+                $btn.prop('disabled', false).text('<?php echo esc_js(__('Create Redirects', 'smart-seo-fixer')); ?>');
+                $('#ssf-bulk-redirect-cancel').prop('disabled', false);
             }
-            $.post(ssfAdmin.ajax_url, {action:'ssf_add_redirect',nonce:ssfAdmin.nonce,from:urls[done],to:redirectTo,redirect_type:'301',note:'Bulk from 404 log'}, function() {
-                done++;
-                updateProgress();
-                addNext();
-            }).fail(function() { done++; failed++; updateProgress(); addNext(); });
-        }
-        addNext();
+        });
     });
     
     function escH(t) { var d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }

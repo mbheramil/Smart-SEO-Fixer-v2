@@ -945,11 +945,30 @@ class SSF_Search_Console {
      */
     public function ajax_fix_indexability_issue() {
         $this->verify();
-        
+
         $fix_type = sanitize_text_field($_POST['fix_type'] ?? '');
         $post_id = intval($_POST['post_id'] ?? 0);
+
+        $result = $this->apply_indexability_fix($post_id, $fix_type);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()]);
+        }
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * Pure indexability-fix logic — no wp_die, safe to call from the
+     * background job queue as well as the AJAX handler above.
+     *
+     * @param int    $post_id
+     * @param string $fix_type
+     * @return array{fixed: string[], message: string}|WP_Error
+     */
+    public function apply_indexability_fix($post_id, $fix_type) {
         $fixed = [];
-        
+
         switch ($fix_type) {
             case 'remove_noindex':
                 if ($post_id > 0) {
@@ -957,21 +976,21 @@ class SSF_Search_Console {
                     $fixed[] = sprintf(__('Removed noindex from "%s"', 'smart-seo-fixer'), get_the_title($post_id));
                 }
                 break;
-                
+
             case 'generate_seo':
                 if ($post_id <= 0) {
-                    wp_send_json_error(['message' => __('Invalid post ID.', 'smart-seo-fixer')]);
+                    return new WP_Error('invalid_post', __('Invalid post ID.', 'smart-seo-fixer'));
                 }
                 if (!class_exists('SSF_AI')) {
-                    wp_send_json_error(['message' => __('AI module not available.', 'smart-seo-fixer')]);
+                    return new WP_Error('no_ai', __('AI module not available.', 'smart-seo-fixer'));
                 }
                 $openai = SSF_AI::get();
                 if (!$openai->is_configured()) {
-                      wp_send_json_error(['message' => SSF_AI::not_configured_message()]);
+                    return new WP_Error('not_configured', SSF_AI::not_configured_message());
                 }
                 $post = get_post($post_id);
                 if (!$post) {
-                    wp_send_json_error(['message' => __('Post not found.', 'smart-seo-fixer')]);
+                    return new WP_Error('not_found', __('Post not found.', 'smart-seo-fixer'));
                 }
                 
                 $focus_keyword = get_post_meta($post_id, '_ssf_focus_keyword', true);
@@ -1025,19 +1044,19 @@ class SSF_Search_Console {
                 
                 // If nothing was generated and there were errors, return error
                 if (empty($fixed) && !empty($errors)) {
-                    wp_send_json_error(['message' => implode('. ', $errors)]);
+                    return new WP_Error('fix_failed', implode('. ', $errors));
                 }
                 break;
-                
+
             case 'generate_unique_title':
                 if ($post_id > 0 && class_exists('SSF_AI')) {
                     $openai = SSF_AI::get();
                     if (!$openai->is_configured()) {
-                        wp_send_json_error(['message' => SSF_AI::not_configured_message()]);
+                        return new WP_Error('not_configured', SSF_AI::not_configured_message());
                     }
                     $post = get_post($post_id);
                     if (!$post) {
-                        wp_send_json_error(['message' => __('Post not found.', 'smart-seo-fixer')]);
+                        return new WP_Error('not_found', __('Post not found.', 'smart-seo-fixer'));
                     }
                     $focus_keyword = get_post_meta($post_id, '_ssf_focus_keyword', true);
                     $current_seo_title = get_post_meta($post_id, '_ssf_seo_title', true);
@@ -1061,20 +1080,20 @@ class SSF_Search_Console {
                     ];
                     
                     $title = $openai->request($messages, 100, 0.9);
-                    
+
                     if (is_wp_error($title)) {
-                        wp_send_json_error(['message' => $title->get_error_message()]);
+                        return $title;
                     }
-                    
+
                     $title = trim(trim($title), '"\'');
-                    
+
                     if (empty($title)) {
-                        wp_send_json_error(['message' => __('AI returned empty title. Try again.', 'smart-seo-fixer')]);
+                        return new WP_Error('empty_title', __('AI returned empty title. Try again.', 'smart-seo-fixer'));
                     }
-                    
+
                     // Ensure it's actually different
                     if (strtolower($title) === strtolower($current_seo_title)) {
-                        wp_send_json_error(['message' => __('AI generated the same title. Try again.', 'smart-seo-fixer')]);
+                        return new WP_Error('same_title', __('AI generated the same title. Try again.', 'smart-seo-fixer'));
                     }
                     
                     update_post_meta($post_id, '_ssf_seo_title', sanitize_text_field($title));
@@ -1086,11 +1105,11 @@ class SSF_Search_Console {
                 if ($post_id > 0 && class_exists('SSF_AI')) {
                     $openai = SSF_AI::get();
                     if (!$openai->is_configured()) {
-                        wp_send_json_error(['message' => SSF_AI::not_configured_message()]);
+                        return new WP_Error('not_configured', SSF_AI::not_configured_message());
                     }
                     $post = get_post($post_id);
                     if (!$post) {
-                        wp_send_json_error(['message' => __('Post not found.', 'smart-seo-fixer')]);
+                        return new WP_Error('not_found', __('Post not found.', 'smart-seo-fixer'));
                     }
                     $focus_keyword = get_post_meta($post_id, '_ssf_focus_keyword', true);
                     $current_desc = get_post_meta($post_id, '_ssf_meta_description', true);
@@ -1116,20 +1135,20 @@ class SSF_Search_Console {
                     ];
                     
                     $desc = $openai->request($messages, 200, 0.9);
-                    
+
                     if (is_wp_error($desc)) {
-                        wp_send_json_error(['message' => $desc->get_error_message()]);
+                        return $desc;
                     }
-                    
+
                     $desc = trim(trim($desc), '"\'');
-                    
+
                     if (empty($desc)) {
-                        wp_send_json_error(['message' => __('AI returned empty description. Try again.', 'smart-seo-fixer')]);
+                        return new WP_Error('empty_desc', __('AI returned empty description. Try again.', 'smart-seo-fixer'));
                     }
-                    
+
                     // Ensure it's actually different
                     if (strtolower($desc) === strtolower($current_desc)) {
-                        wp_send_json_error(['message' => __('AI generated the same description. Try again.', 'smart-seo-fixer')]);
+                        return new WP_Error('same_desc', __('AI generated the same description. Try again.', 'smart-seo-fixer'));
                     }
                     
                     update_post_meta($post_id, '_ssf_meta_description', sanitize_textarea_field($desc));
@@ -1138,18 +1157,17 @@ class SSF_Search_Console {
                 break;
                 
             case 'fix_redirect_chains':
-                $result = $this->fix_url_issues('redirect_chains');
-                $fixed = $result;
+                $fixed = $this->fix_url_issues('redirect_chains');
                 break;
-                
+
             default:
-                wp_send_json_error(['message' => __('Unknown fix type.', 'smart-seo-fixer')]);
+                return new WP_Error('unknown_fix', __('Unknown fix type.', 'smart-seo-fixer'));
         }
-        
-        wp_send_json_success([
+
+        return [
             'fixed' => $fixed,
             'message' => !empty($fixed) ? implode('. ', $fixed) : __('No changes needed.', 'smart-seo-fixer'),
-        ]);
+        ];
     }
     
     /**
@@ -1159,24 +1177,47 @@ class SSF_Search_Console {
     public function ajax_fix_orphaned_page() {
         $this->verify();
         if (class_exists('SSF_History')) SSF_History::set_source('orphan_fix');
-        
+
         $orphan_id = intval($_POST['post_id'] ?? 0);
+        $result = $this->apply_orphan_fix($orphan_id);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message(), 'linked' => false]);
+        }
+
+        if (empty($result['linked'])) {
+            wp_send_json_error($result);
+        }
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * Pure orphan-link-fix logic — no wp_die, safe to call from the
+     * background job queue as well as the AJAX handler above.
+     *
+     * @param int $orphan_id
+     * @return array{message: string, linked: bool}|WP_Error
+     */
+    public function apply_orphan_fix($orphan_id) {
+        if (class_exists('SSF_History')) SSF_History::set_source('orphan_fix');
+
         if ($orphan_id <= 0) {
-            wp_send_json_error(['message' => __('Invalid post ID.', 'smart-seo-fixer')]);
+            return new WP_Error('invalid_post', __('Invalid post ID.', 'smart-seo-fixer'));
         }
-        
+
         if (!class_exists('SSF_AI')) {
-            wp_send_json_error(['message' => __('AI module not available.', 'smart-seo-fixer')]);
+            return new WP_Error('no_ai', __('AI module not available.', 'smart-seo-fixer'));
         }
-        
+
         $openai = SSF_AI::get();
         if (!$openai->is_configured()) {
-                      wp_send_json_error(['message' => SSF_AI::not_configured_message()]);
+            return new WP_Error('not_configured', SSF_AI::not_configured_message());
         }
-        
+
         $orphan_post = get_post($orphan_id);
         if (!$orphan_post || $orphan_post->post_status !== 'publish') {
-            wp_send_json_error(['message' => __('Post not found or not published.', 'smart-seo-fixer')]);
+            return new WP_Error('not_found', __('Post not found or not published.', 'smart-seo-fixer'));
         }
         
         $orphan_url = get_permalink($orphan_id);
@@ -1205,7 +1246,7 @@ class SSF_Search_Console {
         );
         
         if (empty($candidates)) {
-            wp_send_json_error(['message' => __('No candidate posts found for internal linking.', 'smart-seo-fixer')]);
+            return new WP_Error('no_candidates', __('No candidate posts found for internal linking.', 'smart-seo-fixer'));
         }
         
         // Score candidates by keyword relevance to the orphaned page
@@ -1575,16 +1616,16 @@ class SSF_Search_Console {
         }
         
         if ($link_added || !empty($outgoing_messages)) {
-            wp_send_json_success([
+            return [
                 'message' => $result_message,
                 'linked' => true,
-            ]);
-        } else {
-            wp_send_json_error([
-                'message' => $result_message,
-                'linked' => false,
-            ]);
+            ];
         }
+
+        return [
+            'message' => $result_message,
+            'linked' => false,
+        ];
     }
     
     /**

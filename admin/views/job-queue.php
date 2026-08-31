@@ -39,12 +39,11 @@ $active_count = class_exists('SSF_Job_Queue') ? SSF_Job_Queue::active_count() : 
         $ai_usage = SSF_Rate_Limiter::get_usage($ai_provider_slug);
         $gsc_usage = SSF_Rate_Limiter::get_usage('gsc');
     ?>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px;">
-        <div class="ssf-card" style="padding: 20px;">
-            <h3 style="margin: 0 0 12px; font-size: 14px; color: #64748b;">
-                <span class="dashicons dashicons-admin-generic" style="font-size: 16px; vertical-align: text-bottom;"></span>
-                <?php printf(esc_html__('%s Rate Limit', 'smart-seo-fixer'), esc_html($ai_provider_label)); ?>
-            </h3>
+    <div class="ssf-widget-grid" style="margin-bottom: 28px;">
+        <div class="ssf-widget">
+            <div class="ssf-widget-header">
+                <h3><?php printf(esc_html__('%s Rate Limit', 'smart-seo-fixer'), esc_html($ai_provider_label)); ?></h3>
+            </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <span style="font-size: 24px; font-weight: 700; color: <?php echo $ai_usage['remaining'] < 5 ? '#dc2626' : '#059669'; ?>;">
@@ -60,12 +59,11 @@ $active_count = class_exists('SSF_Job_Queue') ? SSF_Job_Queue::active_count() : 
                 <div style="height: 100%; width: <?php echo $ai_usage['limit'] > 0 ? round(($ai_usage['remaining'] / $ai_usage['limit']) * 100) : 100; ?>%; background: <?php echo $ai_usage['remaining'] < 5 ? '#dc2626' : '#059669'; ?>; border-radius: 2px; transition: width 0.3s;"></div>
             </div>
         </div>
-        
-        <div class="ssf-card" style="padding: 20px;">
-            <h3 style="margin: 0 0 12px; font-size: 14px; color: #64748b;">
-                <span class="dashicons dashicons-google" style="font-size: 16px; vertical-align: text-bottom;"></span>
-                <?php esc_html_e('GSC Rate Limit', 'smart-seo-fixer'); ?>
-            </h3>
+
+        <div class="ssf-widget">
+            <div class="ssf-widget-header">
+                <h3><?php esc_html_e('GSC Rate Limit', 'smart-seo-fixer'); ?></h3>
+            </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <span style="font-size: 24px; font-weight: 700; color: <?php echo $gsc_usage['remaining'] < 10 ? '#dc2626' : '#059669'; ?>;">
@@ -83,7 +81,7 @@ $active_count = class_exists('SSF_Job_Queue') ? SSF_Job_Queue::active_count() : 
         </div>
     </div>
     <?php endif; ?>
-    
+
     <!-- Jobs Table -->
     <div class="ssf-card">
         <div class="ssf-card-header" style="display: flex; justify-content: space-between; align-items: center;">
@@ -177,7 +175,11 @@ jQuery(document).ready(function($) {
             'bulk_schema': '<?php esc_html_e('Bulk Schema', 'smart-seo-fixer'); ?>',
             'orphan_fix_batch': '<?php esc_html_e('Orphan Fix', 'smart-seo-fixer'); ?>',
             'not_indexed_ai_fix': '<?php esc_html_e('Not-Indexed AI Fix', 'smart-seo-fixer'); ?>',
-            'bulk_404_redirect': '<?php esc_html_e('Bulk 404 Redirect', 'smart-seo-fixer'); ?>'
+            'bulk_404_redirect': '<?php esc_html_e('Bulk 404 Redirect', 'smart-seo-fixer'); ?>',
+            'indexability_fix': '<?php esc_html_e('Indexability Fix', 'smart-seo-fixer'); ?>',
+            'bulk_alt_text': '<?php esc_html_e('Bulk Alt Text', 'smart-seo-fixer'); ?>',
+            'regenerate_alt_text': '<?php esc_html_e('Regenerate Alt Text', 'smart-seo-fixer'); ?>',
+            'bulk_reanalyze': '<?php esc_html_e('Re-analyze Posts', 'smart-seo-fixer'); ?>'
         };
         return labels[type] || type;
     }
